@@ -43,14 +43,19 @@ Requirements: Docker.
 docker compose up --build
 ```
 
-Open http://localhost:8080. The first start creates three demo companies with data. The login page lists their accounts:
+Open http://localhost:8080. The first start creates three demo companies with data. The login page lists their accounts; every demo account uses the password `tezgah-demo-2026`, the platform admin `tezgah-platform-2026`.
 
-| Account | Password | Modules |
+| Account | Role | Company and modules |
 |---|---|---|
-| `makas@tezgah.local` (hairdresser) | `demo1234` | Customers, Loyalty, Appointments |
-| `kahve@tezgah.local` (café) | `demo1234` | Customers, Orders, Loyalty, Inventory |
-| `lojistik@tezgah.local` (logistics) | `demo1234` | Fleet |
-| `admin@tezgah.local` (platform admin) | `admin1234` | Opens companies, assigns modules |
+| `makas@tezgah.local` | owner | Makas Kuaför: Customers, Loyalty, Appointments |
+| `resepsiyon@tezgah.local` | staff | Makas Kuaför |
+| `kahve@tezgah.local` | owner | Köşe Kahve: Customers, Orders, Loyalty, Inventory |
+| `kasa@tezgah.local` | staff | Köşe Kahve |
+| `lojistik@tezgah.local` | owner | Yıldız Lojistik: Fleet |
+| `filo@tezgah.local` | manager | Yıldız Lojistik |
+| `admin@tezgah.local` | platform admin | Opens companies, assigns modules |
+
+If you ran an earlier version, start from an empty database once (`docker compose down -v`): the demo passwords changed.
 
 API reference: http://localhost:5080/docs
 
@@ -59,6 +64,8 @@ API reference: http://localhost:5080/docs
 - Sign in as the café, open **Sipariş**, pick the customer Ayşe Yılmaz and add a latte and a Türk kahvesi. Her coffee card is full, so a reward is offered: tick it and the cheaper coffee goes free. Save, then open **Sadakat**: the paid coffee is on her card. Cancel the order in today's list and both the stamp and the reward go back.
 - Sign in as the hairdresser, open **Randevu**, click an appointment and mark it **Tamamlandı**. Then open **Sadakat**: the customer's card has a new stamp. The two modules do not know each other.
 - Try to book the same staff member for an overlapping time. The second booking is refused.
+- Sign in as `kasa@tezgah.local` (staff at the café): orders can be rung up, but the menu and loyalty rules cannot be changed, and only one's own order can be cancelled, within 15 minutes. Then sign in as the owner, open **Ekip** and promote her to manager: her open session ends at once, and after signing in again she can edit the menu.
+- Open **Hesabım** and switch on two-step sign-in with any authenticator app; the next sign-in asks for a code.
 - Sign in as the admin, give Yıldız Lojistik the **Stok** module, then sign in as Yıldız Lojistik: it appears in the menu.
 
 ### Working on the code
@@ -132,13 +139,36 @@ Small businesses have two tills and a phone, and the same thing does happen twic
 | An event delivered twice | Each stamp records its source (`order:{id}`, `appointment:{id}`), unique per card; a second delivery finds it and does nothing | `Completing_an_appointment_stamps_the_customers_loyalty_card_exactly_once` |
 | One company reading another's data | Tenant query filter; foreign ids answer 404 | `TenantIsolationTests` |
 
+## Authentication and authorization
+
+**Signing in.** Passwords are hashed with ASP.NET Core Identity's PBKDF2 (re-hashed on sign-in when the settings get stronger). The policy follows NIST SP 800-63B: at least 12 characters, no composition rules, well-known passwords and the e-mail address refused. A wrong password and an unknown address get the same answer and cost the same time. After five failures an address is locked for 15 minutes, whether or not an account exists for it, and every IP address is rate-limited on top.
+
+**Sessions.** A successful sign-in returns a 15-minute access token (JWT, HS256, issuer and audience checked) in the response body; the web app keeps it in memory only, never in `localStorage`. The refresh token is a random 256-bit value in an `HttpOnly`, `SameSite=Strict` cookie scoped to `/api/auth`, stored on the server only as a SHA-256 hash. Every refresh replaces it; a refresh token presented twice means it was copied, and the whole session is ended. Tabs take turns refreshing through a Web Lock so they never trip that alarm themselves. The auth endpoints also require an `X-Requested-With` header, which another site cannot send.
+
+**Taking access away.** Each user has a session version that every access token carries. Changing the password, changing the role or deactivating the user raises it, and from the next request on the old tokens are refused, not after they expire. (The check is cached per user for 20 seconds; with several API instances, the others notice within that time.) Users see their open sessions and can end any of them.
+
+**Two-step sign-in.** Optional TOTP (RFC 6238) with any authenticator app; the secret is encrypted at rest with AES-GCM under its own key, a code is never accepted twice, and ten single-use recovery codes are handed out once. Between the password and the code the client holds a five-minute ticket whose audience the API refuses as an access token.
+
+**Accounts made by someone else** (a new team member, a new company's owner, a reset) get a generated temporary password. With it the only thing that opens is the change-password endpoint; the person who handed it over never learns the password actually used.
+
+**Roles and permissions.** A company has owners, managers and staff. Each module declares its permissions with the lowest role that holds them (`orders.sell` for staff, `orders.menu` for managers, ...), every module endpoint asks for one, and a test fails the build if a new endpoint asks for none. Everything not explicitly anonymous requires a signed-in user (fallback policy); another test lists the anonymous endpoints. The client hides what a user cannot do using the permissions `/api/me` reports, but the server decides.
+
+| Rule | Where |
+|---|---|
+| Staff cancel their own order within 15 minutes; managers cancel any | `Order.MayBeCancelledBy`, resource-based, inside the till |
+| Only owners manage people; nobody changes their own role or access | `TeamEndpoints` |
+| A company always keeps an active owner, even when two owners demote each other at once | The company row is locked for the change |
+| The platform admin opens companies but reads no company data | No tenant claim, so every module refuses |
+
+**Around it.** The API sends `nosniff`, `X-Frame-Options: DENY` and `Cache-Control: no-store`; nginx serves the app with a strict Content Security Policy (no inline scripts, nothing from other origins). The client address is taken from `X-Forwarded-For` only when the request comes from the configured proxy network.
+
 ## Repository layout
 
 ```
 src/
   Tezgah.Api/              composition root: the module list, auth, migrations at start-up
   Tezgah.Core/             IModule, ModuleCatalog, tenancy, outbox, Result, cross-module contracts
-  Tezgah.Platform/         companies, users, sign-in (JWT), admin endpoints, demo companies
+  Tezgah.Platform/         companies, users, sign-in, sessions, two-step, team, admin endpoints, demo companies
   Modules/
     Tezgah.Customers/
     Tezgah.Loyalty/
@@ -152,7 +182,8 @@ web/                       React + TypeScript + Vite + TanStack Query, one folde
 
 ## Deliberately left out
 
-- **Staff accounts and roles inside a company.** Each company has its owner account. Roles exist in the token but every company user can do everything in the modules they have.
+- **Forgotten-password e-mails.** There is no mail delivery. An owner resets a team member's password from **Ekip**; a company whose only owner forgot the password needs a second owner, or the operator.
+- **Per-person permission overrides.** Permissions follow the role; giving one cashier a single manager permission is not possible.
 - **Payments.** The till records what was sold and for how much; taking the money is outside.
 - **Orders taking stock out of Inventory.** Menu items and stock products are separate lists. Linking them (a latte uses 18 g of beans and 200 ml of milk) is a recipe feature of its own.
 - **Billing.** Which modules a company pays for is the admin's checkbox, not a subscription system.
