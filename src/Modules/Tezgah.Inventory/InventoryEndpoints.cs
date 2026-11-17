@@ -11,7 +11,8 @@ namespace Tezgah.Inventory;
 
 internal static class InventoryEndpoints
 {
-    public sealed record ProductRequest(string? Name, string? Unit, decimal ReorderLevel, decimal InitialStock, bool? IsActive);
+    /// <param name="OpeningStock">What is on the shelf when the product is added; recorded as its first stock movement. Ignored on update.</param>
+    public sealed record ProductRequest(string? Name, string? Unit, decimal ReorderLevel, decimal OpeningStock, bool? IsActive);
 
     public sealed record ProductResponse(Guid Id, string Name, string Unit, decimal Stock, decimal ReorderLevel, bool IsActive, bool RunningLow)
     {
@@ -40,18 +41,27 @@ internal static class InventoryEndpoints
     private static async Task<IReadOnlyList<ProductResponse>> ListAsync(InventoryDbContext db, CancellationToken ct) =>
         (await db.Products.AsNoTracking().OrderBy(product => product.Name).ToListAsync(ct)).ConvertAll(ProductResponse.From);
 
-    private static async Task<IResult> CreateAsync(ProductRequest request, InventoryDbContext db, CancellationToken ct)
+    private static async Task<IResult> CreateAsync(
+        ProductRequest request, ClaimsPrincipal user, InventoryDbContext db, TimeProvider time, CancellationToken ct)
     {
-        var product = Product.Create(request.Name, request.Unit, request.ReorderLevel, request.InitialStock);
-        if (!product.IsSuccess)
+        var created = Product.Create(
+            request.Name, request.Unit, request.ReorderLevel, request.OpeningStock, user.GetDisplayName(), time.GetUtcNow());
+        if (!created.IsSuccess)
         {
-            return product.Error.ToProblem();
+            return created.Error.ToProblem();
         }
 
-        db.Products.Add(product.Value);
+        // Product and opening movement are saved together: there is no stock without its history.
+        var (product, opening) = created.Value;
+        db.Products.Add(product);
+        if (opening is not null)
+        {
+            db.Movements.Add(opening);
+        }
+
         return await SaveAsync(db, ct) is { } conflict
             ? conflict.ToProblem()
-            : Results.Created($"/api/inventory/products/{product.Value.Id}", ProductResponse.From(product.Value));
+            : Results.Created($"/api/inventory/products/{product.Id}", ProductResponse.From(product));
     }
 
     private static async Task<IResult> UpdateAsync(Guid productId, ProductRequest request, InventoryDbContext db, CancellationToken ct)

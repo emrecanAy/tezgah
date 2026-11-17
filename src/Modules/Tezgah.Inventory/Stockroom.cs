@@ -14,9 +14,19 @@ internal sealed class Stockroom(InventoryDbContext db, TenantContext tenant, Tim
     public async Task<Result<decimal>> MoveAsync(
         Guid productId, MovementKind kind, decimal quantity, string? note, string movedBy, CancellationToken ct)
     {
-        if (quantity <= 0)
+        var unit = await db.Products
+            .Where(product => product.Id == productId)
+            .Select(product => product.Unit)
+            .SingleOrDefaultAsync(ct);
+        if (unit is null)
         {
-            return Error.Validation("invalid_quantity", "The quantity must be greater than zero.");
+            return Error.NotFound("product_not_found", "This product does not exist.");
+        }
+
+        var valid = StockUnits.ValidateQuantity(unit, quantity);
+        if (!valid.IsSuccess)
+        {
+            return valid.Error;
         }
 
         var delta = kind == MovementKind.In ? quantity : -quantity;

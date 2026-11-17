@@ -4,6 +4,7 @@ import type { CatalogModule } from '../api/types'
 import { layoutDay } from './agenda'
 import { toggleModule } from './modules'
 import { byCategory, changeQuantity, ticketTotals } from './ticket'
+import { isCounted, parseQuantity } from './units'
 
 describe('format', () => {
   it('groups a Turkish mobile number however many leading zeros it was stored with', () => {
@@ -99,5 +100,19 @@ describe('till', () => {
 
   it('groups the menu by category in Turkish alphabetical order', () => {
     expect(byCategory([brownie, turkish, latte, item('Çay', 'Çay', 30)]).map(([category]) => category)).toEqual(['Çay', 'Kahve', 'Tatlı'])
+  })
+})
+
+describe('stock quantities', () => {
+  it('reads a comma as the decimal separator and an empty box as nothing', () => {
+    expect(parseQuantity('2,5')).toBe(2.5)
+    expect(parseQuantity(' 12 ')).toBe(12)
+    expect(parseQuantity('')).toBeNull()
+    expect(parseQuantity('iki')).toBeNull()
+  })
+
+  it('knows which units are counted in whole numbers', () => {
+    expect(isCounted('adet')).toBe(true)
+    expect(isCounted('kg')).toBe(false)
   })
 })

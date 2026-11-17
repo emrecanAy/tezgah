@@ -26,13 +26,19 @@ public sealed class InventoryModule : IModule
     public async Task SeedDemoAsync(IServiceProvider services, DemoBusiness business, CancellationToken ct)
     {
         var db = services.GetRequiredService<InventoryDbContext>();
-        db.Products.AddRange(
-            Product.Create("Espresso çekirdeği", "kg", reorderLevel: 5, initialStock: 18.5m).Value,
-            Product.Create("Süt", "lt", reorderLevel: 20, initialStock: 14).Value,
-            Product.Create("Karton bardak 8 oz", "adet", reorderLevel: 300, initialStock: 1250).Value,
-            Product.Create("Bardak kapağı", "adet", reorderLevel: 300, initialStock: 240).Value,
-            Product.Create("Vanilya şurubu", "şişe", reorderLevel: 2, initialStock: 6).Value,
-            Product.Create("Filtre kağıdı", "paket", reorderLevel: 3, initialStock: 9).Value);
+        var now = services.GetRequiredService<TimeProvider>().GetUtcNow();
+        (string Name, string Unit, decimal ReorderLevel, decimal OpeningStock)[] products =
+        [
+            ("Espresso çekirdeği", "kg", 5, 18.5m), ("Süt", "lt", 20, 14), ("Karton bardak 8 oz", "adet", 300, 1250),
+            ("Bardak kapağı", "adet", 300, 240), ("Vanilya şurubu", "şişe", 2, 6), ("Filtre kağıdı", "paket", 3, 9),
+        ];
+        foreach (var (name, unit, reorderLevel, openingStock) in products)
+        {
+            var (product, opening) = Product.Create(name, unit, reorderLevel, openingStock, "Demo", now).Value;
+            db.Products.Add(product);
+            db.Movements.Add(opening!);
+        }
+
         await db.SaveChangesAsync(ct);
     }
 }

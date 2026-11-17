@@ -54,3 +54,73 @@
 .movement--out {
   color: var(--danger);
 }
+
+.form-section {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.form-section + .form-section {
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.form-section legend {
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+}
+
+.form-section .field {
+  align-content: end;
+}
+
+.form-note {
+  font-size: 0.875rem;
+}
+
+/* The unit sits inside the box, so a number is never read without what it counts. */
+.unit-input {
+  display: flex;
+  align-items: stretch;
+  font-weight: 400;
+}
+
+.unit-input input {
+  flex: 1;
+  min-width: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.unit-input span {
+  display: flex;
+  align-items: center;
+  padding: 0 0.7rem;
+  border: 1px solid #c3ccc1;
+  border-left: 0;
+  border-radius: 0 var(--radius-small) var(--radius-small) 0;
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.stock-change {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.25rem 1rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: var(--radius-small);
+  background: var(--paper);
+}
+
+.stock-change dd {
+  text-align: right;
+  font-weight: 600;
+}
+
+.stock-change--short {
+  color: var(--warn);
+}
