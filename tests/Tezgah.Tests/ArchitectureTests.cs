@@ -5,6 +5,7 @@ using Tezgah.Customers;
 using Tezgah.Fleet;
 using Tezgah.Inventory;
 using Tezgah.Loyalty;
+using Tezgah.Orders;
 
 namespace Tezgah.Tests;
 
@@ -17,6 +18,7 @@ public sealed class ArchitectureTests
         typeof(FleetModule).Assembly,
         typeof(InventoryModule).Assembly,
         typeof(LoyaltyModule).Assembly,
+        typeof(OrdersModule).Assembly,
     ];
 
     /// <summary>

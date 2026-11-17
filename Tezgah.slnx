@@ -10,6 +10,7 @@
     <Project Path="src/Modules/Tezgah.Fleet/Tezgah.Fleet.csproj" />
     <Project Path="src/Modules/Tezgah.Inventory/Tezgah.Inventory.csproj" />
     <Project Path="src/Modules/Tezgah.Loyalty/Tezgah.Loyalty.csproj" />
+    <Project Path="src/Modules/Tezgah.Orders/Tezgah.Orders.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Tezgah.Tests/Tezgah.Tests.csproj" />

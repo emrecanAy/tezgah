@@ -4,13 +4,17 @@ using Tezgah.Customers;
 using Tezgah.Fleet;
 using Tezgah.Inventory;
 using Tezgah.Loyalty;
+using Tezgah.Orders;
 
 namespace Tezgah.Tests;
 
 public sealed class ModuleCatalogTests
 {
     private static readonly IModule[] Available =
-        [new AppointmentsModule(), new CustomersModule(), new FleetModule(), new InventoryModule(), new LoyaltyModule()];
+    [
+        new AppointmentsModule(), new CustomersModule(), new FleetModule(), new InventoryModule(), new LoyaltyModule(),
+        new OrdersModule(),
+    ];
 
     [Fact]
     public void An_installation_can_ship_a_single_module()
@@ -25,9 +29,10 @@ public sealed class ModuleCatalogTests
     {
         var keys = ModuleCatalog.Create(Available, shipped: null).Modules.Select(module => module.Info.Key).ToList();
 
-        Assert.Equal(5, keys.Count);
+        Assert.Equal(6, keys.Count);
         Assert.True(keys.IndexOf("customers") < keys.IndexOf("appointments"));
         Assert.True(keys.IndexOf("customers") < keys.IndexOf("loyalty"));
+        Assert.True(keys.IndexOf("customers") < keys.IndexOf("orders"));
     }
 
     [Fact]

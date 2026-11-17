@@ -28,14 +28,11 @@ public sealed class TenantIsolationTests(TezgahApp app)
     [Fact]
     public async Task Another_companys_customer_id_is_useless_in_other_modules_too()
     {
-        var first = await app.OpenCompanyAsync("customers", "loyalty");
-        var second = await app.OpenCompanyAsync("customers", "loyalty");
+        var first = await app.OpenCompanyAsync("customers");
+        var second = await Cafe.OpenAsync(app, "customers", "orders");
         var foreignCustomer = await first.AddCustomerAsync();
-        var program = await second.Api.PostAsync<Loyalty.LoyaltyEndpoints.ProgramResponse>(
-            "/api/loyalty/programs", new { name = "Kart", stampsRequired = 4, reward = "Hediye" });
 
-        var response = await second.Api.PostAsJsonAsync(
-            $"/api/loyalty/programs/{program.Id}/stamps", new { customerId = foreignCustomer });
+        var response = await second.SendOrderAsync(Guid.NewGuid(), foreignCustomer, null, (second.Latte, 1));
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Equal("customer_not_found", await response.ErrorCodeAsync());

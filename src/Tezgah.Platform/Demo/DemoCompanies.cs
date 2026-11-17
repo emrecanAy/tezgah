@@ -22,7 +22,7 @@ internal static class DemoCompanies
         new("Makas Kuaför", "Kuaför", "Elif Demir", "makas@tezgah.local", DemoBusiness.Hairdresser,
             ["customers", "loyalty", "appointments"]),
         new("Köşe Kahve", "Kafe", "Murat Aksoy", "kahve@tezgah.local", DemoBusiness.Cafe,
-            ["customers", "loyalty", "inventory"]),
+            ["customers", "orders", "loyalty", "inventory"]),
         new("Yıldız Lojistik", "Lojistik", "Hakan Yıldız", "lojistik@tezgah.local", DemoBusiness.Logistics,
             ["fleet"]),
     ];

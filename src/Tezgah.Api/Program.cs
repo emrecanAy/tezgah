@@ -6,6 +6,7 @@ using Tezgah.Customers;
 using Tezgah.Fleet;
 using Tezgah.Inventory;
 using Tezgah.Loyalty;
+using Tezgah.Orders;
 using Tezgah.Platform;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,7 +15,10 @@ var services = builder.Services;
 // The one place that knows every module. "Platform:Modules" narrows an installation to a subset,
 // e.g. ["fleet"] for a customer who bought only fleet tracking; left out, everything is shipped.
 var catalog = ModuleCatalog.Create(
-    [new AppointmentsModule(), new CustomersModule(), new FleetModule(), new InventoryModule(), new LoyaltyModule()],
+    [
+        new AppointmentsModule(), new CustomersModule(), new FleetModule(), new InventoryModule(), new LoyaltyModule(),
+        new OrdersModule(),
+    ],
     builder.Configuration.GetSection("Platform:Modules").Get<string[]>());
 
 services.AddProblemDetails();

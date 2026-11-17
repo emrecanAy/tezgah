@@ -74,6 +74,7 @@ public sealed class PlatformTests(TezgahApp app)
     [Theory]
     [InlineData("loyalty")]
     [InlineData("appointments")]
+    [InlineData("orders")]
     public async Task A_module_cannot_be_given_without_the_modules_it_depends_on(string dependent)
     {
         var company = await app.OpenCompanyAsync("customers", dependent);

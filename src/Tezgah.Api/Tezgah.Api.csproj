@@ -12,6 +12,7 @@
     <ProjectReference Include="..\Modules\Tezgah.Fleet\Tezgah.Fleet.csproj" />
     <ProjectReference Include="..\Modules\Tezgah.Inventory\Tezgah.Inventory.csproj" />
     <ProjectReference Include="..\Modules\Tezgah.Loyalty\Tezgah.Loyalty.csproj" />
+    <ProjectReference Include="..\Modules\Tezgah.Orders\Tezgah.Orders.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Tezgah.Tests" />
