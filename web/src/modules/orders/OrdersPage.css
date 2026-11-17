@@ -1,0 +1,235 @@
+.till {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(19rem, 24rem);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .till {
+    grid-template-columns: 1fr;
+  }
+}
+
+.till__menu {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.till__category h2 {
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+  color: var(--muted);
+}
+
+.till__items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 0.6rem;
+}
+
+.menu-item {
+  display: grid;
+  gap: 0.15rem;
+  min-height: 4.25rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu-item span:first-child {
+  font-weight: 600;
+}
+
+.menu-item span:last-child {
+  color: var(--muted);
+}
+
+.menu-item:hover {
+  border-color: var(--orders);
+}
+
+.menu-item:active {
+  background: color-mix(in srgb, var(--orders) 8%, white);
+}
+
+/* The ticket reads like the slip the till prints: one column, ruled off where the total starts. */
+.ticket {
+  position: sticky;
+  top: 1.5rem;
+  display: grid;
+  gap: 1rem;
+  padding: 1.1rem 1.2rem 1.2rem;
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--orders);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.ticket__customer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px dashed var(--line);
+  font-size: 0.875rem;
+}
+
+.ticket__customer div {
+  display: grid;
+}
+
+.ticket__customer strong {
+  font-size: 0.9375rem;
+}
+
+.ticket__empty {
+  padding-block: 1.5rem;
+  text-align: center;
+}
+
+.ticket__lines {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.ticket__lines li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 5rem;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.ticket__name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+}
+
+.ticket__amount {
+  text-align: right;
+}
+
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+}
+
+.stepper button {
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 0;
+  background: none;
+  font-size: 1.05rem;
+  cursor: pointer;
+}
+
+.stepper button:hover {
+  background: var(--paper);
+}
+
+.stepper span {
+  min-width: 1.6rem;
+  text-align: center;
+  font-weight: 600;
+}
+
+.ticket__rewards {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--brass) 70%, white);
+  border-radius: var(--radius-small);
+  background: color-mix(in srgb, var(--brass) 14%, white);
+}
+
+.ticket__rewards legend {
+  padding: 0 0.3rem;
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.ticket__hint {
+  color: var(--warn);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.ticket__totals {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.3rem 1rem;
+  padding-top: 0.9rem;
+  border-top: 1px dashed var(--line);
+}
+
+.ticket__totals dd {
+  text-align: right;
+}
+
+.ticket__total {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.ticket__notice {
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius-small);
+  background: var(--ok-soft);
+  color: var(--ok);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.ticket__submit {
+  min-height: 2.9rem;
+}
+
+.today {
+  margin-top: 2.5rem;
+}
+
+.today h2 {
+  margin-bottom: 0.75rem;
+}
+
+.order--cancelled td {
+  color: var(--muted);
+}
+
+.order--cancelled td:nth-child(4) {
+  text-decoration: line-through;
+}
+
+.order__reward {
+  display: block;
+  color: var(--ok);
+}
+
+.menu-list {
+  display: grid;
+  max-height: 24rem;
+  overflow-y: auto;
+}
+
+.menu-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.menu-list li > span:first-child {
+  display: grid;
+}

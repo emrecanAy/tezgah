@@ -3,6 +3,7 @@ import { describeDaysLeft, formatDate, formatPhone, toDateInput } from './format
 import type { CatalogModule } from '../api/types'
 import { layoutDay } from './agenda'
 import { toggleModule } from './modules'
+import { byCategory, changeQuantity, ticketTotals } from './ticket'
 
 describe('format', () => {
   it('groups a Turkish mobile number however many leading zeros it was stored with', () => {
@@ -68,5 +69,35 @@ describe('module selection', () => {
 
   it('leaves independent modules alone', () => {
     expect(toggleModule(catalog, ['customers', 'loyalty'], 'fleet', true)).toEqual(['customers', 'fleet', 'loyalty'])
+  })
+})
+
+describe('till', () => {
+  const item = (id: string, category: string, price: number) => ({ id, name: id, category, price, isAvailable: true })
+  const latte = item('Latte', 'Kahve', 130)
+  const turkish = item('Türk Kahvesi', 'Kahve', 90)
+  const brownie = item('Brownie', 'Tatlı', 140)
+
+  it('adds up the ticket and makes the cheapest item of the reward category free', () => {
+    const lines = [{ item: latte, quantity: 2 }, { item: turkish, quantity: 1 }, { item: brownie, quantity: 1 }]
+
+    expect(ticketTotals(lines, null)).toEqual({ subtotal: 490, discount: 0, total: 490, freeItemId: null })
+    expect(ticketTotals(lines, { category: 'kahve' })).toEqual({ subtotal: 490, discount: 90, total: 400, freeItemId: 'Türk Kahvesi' })
+    expect(ticketTotals(lines, { category: null }).freeItemId).toBe('Türk Kahvesi')
+  })
+
+  it('gives nothing away when the order has no item of the reward category', () => {
+    expect(ticketTotals([{ item: brownie, quantity: 1 }], { category: 'Kahve' }).discount).toBe(0)
+  })
+
+  it('adds and removes one at a time and drops a line at zero', () => {
+    let lines = changeQuantity([], latte, 1)
+    lines = changeQuantity(lines, latte, 1)
+    expect(lines).toEqual([{ item: latte, quantity: 2 }])
+    expect(changeQuantity(changeQuantity(lines, latte, -1), latte, -1)).toEqual([])
+  })
+
+  it('groups the menu by category in Turkish alphabetical order', () => {
+    expect(byCategory([brownie, turkish, latte, item('Çay', 'Çay', 30)]).map(([category]) => category)).toEqual(['Çay', 'Kahve', 'Tatlı'])
   })
 })

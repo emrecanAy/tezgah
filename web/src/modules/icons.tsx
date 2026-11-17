@@ -36,6 +36,12 @@ const paths: Record<ModuleKey | 'home', ReactElement> = {
       <path d="m4 7.5 8 4 8-4M12 11.5v9" />
     </>
   ),
+  orders: (
+    <>
+      <path d="M6 3.5h12v17l-2-1.4-2 1.4-2-1.4-2 1.4-2-1.4-2 1.4z" />
+      <path d="M9 8.5h6M9 12h6M9 15.5h3.5" />
+    </>
+  ),
 }
 
 export function ModuleIcon({ name }: { name: ModuleKey | 'home' }) {

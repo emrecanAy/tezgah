@@ -21,7 +21,7 @@ const SUMMARIES: Record<ModuleKey, { path: string; render: (data: Record<string,
     path: '/loyalty/summary',
     render: (d) => (
       <>
-        Son 7 günde <b>{d.stampsThisWeek}</b> damga basıldı. <b>{d.rewardsWaiting}</b> ödül kullanılmayı bekliyor.
+        Son 7 günde <b>{d.stampsThisWeek}</b> damga kazanıldı. <b>{d.rewardsWaiting}</b> ödül kullanılmayı bekliyor.
       </>
     ),
   },
@@ -39,6 +39,14 @@ const SUMMARIES: Record<ModuleKey, { path: string; render: (data: Record<string,
       <>
         <b>{d.vehicles}</b> araç. {d.alerts === 0 ? 'Yaklaşan tarih yok.' : <><b>{d.alerts}</b> konu ilgi bekliyor.</>} Bu ay
         yakıt: <b>{formatMoney(d.fuelCostThisMonth ?? 0)}</b>.
+      </>
+    ),
+  },
+  orders: {
+    path: `/orders/summary?dayStart=${startOfDay(new Date()).toISOString()}`,
+    render: (d) => (
+      <>
+        Bugün <b>{d.ordersToday}</b> sipariş, <b>{formatMoney(d.revenueToday ?? 0)}</b> ciro.
       </>
     ),
   },

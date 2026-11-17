@@ -49,26 +49,16 @@
   gap: 1rem;
 }
 
-.pick-list {
+.earn-rules {
   display: grid;
-  gap: 0.35rem;
-  max-height: 18rem;
-  overflow-y: auto;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
-.pick-list button {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  width: 100%;
-  padding: 0.55rem 0.7rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-small);
-  background: var(--surface);
-  text-align: left;
-  cursor: pointer;
-}
-
-.pick-list button:hover {
-  border-color: var(--accent);
+.earn-rules legend {
+  margin-bottom: 0.35rem;
+  font-weight: 600;
+  font-size: 0.875rem;
 }

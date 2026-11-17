@@ -1,4 +1,4 @@
-export type ModuleKey = 'customers' | 'loyalty' | 'appointments' | 'fleet' | 'inventory'
+export type ModuleKey = 'customers' | 'loyalty' | 'appointments' | 'fleet' | 'inventory' | 'orders'
 
 export interface Me {
   user: { id: string; fullName: string; email: string; role: 'platform_admin' | 'owner' | 'staff' }
@@ -31,12 +31,17 @@ export interface Customer {
   createdAt: string
 }
 
+/** What earns a stamp. There is no "by hand": a stamp always stands for a recorded visit or sale. */
+export type EarnRule = 'appointment' | 'order' | 'item'
+
 export interface LoyaltyProgram {
   id: string
   name: string
   stampsRequired: number
   reward: string
-  stampOnAppointment: boolean
+  earnRule: EarnRule
+  /** Only items of this menu category count; null for every item. */
+  category: string | null
   isActive: boolean
   cardCount: number
 }
@@ -131,4 +136,44 @@ export interface StockMovement {
   note: string | null
   createdBy: string
   createdAt: string
+}
+
+export interface MenuItem {
+  id: string
+  name: string
+  category: string
+  price: number
+  isAvailable: boolean
+}
+
+export interface OrderLine {
+  name: string
+  category: string
+  unitPrice: number
+  quantity: number
+  freeQuantity: number
+  amount: number
+}
+
+export interface Order {
+  id: string
+  customerId: string | null
+  customerName: string | null
+  status: 'placed' | 'cancelled'
+  lines: OrderLine[]
+  subtotal: number
+  discount: number
+  total: number
+  rewardNote: string | null
+  placedBy: string
+  placedAt: string
+}
+
+export interface RewardOffer {
+  cardId: string
+  programName: string
+  reward: string
+  /** The menu category the reward makes free; null for any item. */
+  category: string | null
+  available: number
 }

@@ -64,3 +64,7 @@
   display: flex;
   gap: 0.5rem;
 }
+
+.stamp-card__hint {
+  font-size: 0.875rem;
+}

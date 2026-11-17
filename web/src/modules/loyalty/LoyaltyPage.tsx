@@ -1,16 +1,36 @@
 import { type CSSProperties, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, send } from '../../api/client'
-import type { Customer, LoyaltyCard, LoyaltyProgram } from '../../api/types'
-import { Dialog, FormDialog, num, text } from '../../components/Dialog'
-import { formatPhone } from '../../lib/format'
+import type { EarnRule, LoyaltyCard, LoyaltyProgram, Me, MenuItem } from '../../api/types'
+import { FormDialog, num, text } from '../../components/Dialog'
 import { StampCard } from './StampCard'
 import './LoyaltyPage.css'
+
+const EARN_RULES: { rule: EarnRule; label: string }[] = [
+  { rule: 'item', label: 'Satılan her ürün 1 damga (iki latte, iki damga)' },
+  { rule: 'order', label: 'Her sipariş 1 damga, içinde kaç ürün olursa olsun' },
+  { rule: 'appointment', label: 'Tamamlanan her randevu 1 damga' },
+]
+
+/** The program's rule as a shop owner would say it. */
+function describeRule(program: LoyaltyProgram): string {
+  const items = program.category ? `${program.category} kategorisindeki her ürün` : 'Siparişteki her ürün'
+  switch (program.earnRule) {
+    case 'appointment':
+      return 'Tamamlanan her randevu bu karta 1 damga basar.'
+    case 'order':
+      return program.category
+        ? `İçinde ${program.category} kategorisinden ürün olan her sipariş 1 damga basar.`
+        : 'Müşteriye kaydedilen her sipariş 1 damga basar.'
+    case 'item':
+      return `${items} 1 damga basar; ödül olarak verilen ürün damga kazandırmaz.`
+  }
+}
 
 export function LoyaltyPage() {
   const queryClient = useQueryClient()
   const [selectedId, setSelectedId] = useState<string>()
-  const [dialog, setDialog] = useState<'program' | 'edit-program' | 'stamp'>()
+  const [dialog, setDialog] = useState<'program' | 'edit-program'>()
   const [notice, setNotice] = useState<string>()
 
   const { data: programs } = useQuery({ queryKey: ['loyalty', 'programs'], queryFn: () => api<LoyaltyProgram[]>('/loyalty/programs') })
@@ -24,16 +44,6 @@ export function LoyaltyPage() {
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['loyalty'] })
 
-  const stamp = useMutation({
-    mutationFn: (customerId: string) =>
-      send<{ card: LoyaltyCard; rewardEarned: boolean }>('POST', `/loyalty/programs/${program!.id}/stamps`, { customerId }),
-    onSuccess: ({ card, rewardEarned }) => {
-      setNotice(rewardEarned ? `${card.customerName} kartını doldurdu: ${program!.reward}.` : undefined)
-      return refresh()
-    },
-    onError: (error) => setNotice(error.message),
-  })
-
   const redeem = useMutation({
     mutationFn: (cardId: string) => send('POST', `/loyalty/cards/${cardId}/redemptions`),
     onSuccess: () => {
@@ -44,11 +54,13 @@ export function LoyaltyPage() {
   })
 
   function saveProgram(fields: FormData) {
+    const earnRule = fields.get('earnRule') as EarnRule
     const body = {
       name: text(fields, 'name'),
       stampsRequired: num(fields, 'stampsRequired'),
       reward: text(fields, 'reward'),
-      stampOnAppointment: fields.get('stampOnAppointment') === 'on',
+      earnRule,
+      category: earnRule === 'appointment' ? null : text(fields, 'category'),
       isActive: dialog === 'edit-program' ? fields.get('isActive') === 'on' : true,
     }
     return dialog === 'edit-program'
@@ -66,24 +78,17 @@ export function LoyaltyPage() {
       <header className="page-header">
         <div>
           <h1>Sadakat</h1>
-          <p>Kuralı siz koyarsınız: kaç alışverişe bir ödül.</p>
+          <p>Damgalar sipariş ve randevulardan kendiliğinden işlenir; elle damga basılmaz.</p>
         </div>
-        <div className="page-actions">
-          <button type="button" className="button button--quiet" onClick={() => setDialog('program')}>
-            Program ekle
-          </button>
-          {program?.isActive && (
-            <button type="button" className="button" onClick={() => setDialog('stamp')}>
-              Müşteriye damga bas
-            </button>
-          )}
-        </div>
+        <button type="button" className="button" onClick={() => setDialog('program')}>
+          Program ekle
+        </button>
       </header>
 
       {programs?.length === 0 && (
         <p className="panel empty">
           <strong>Henüz bir sadakat programınız yok</strong>
-          Örneğin "4 kahveye 1 kahve bizden" gibi bir kural tanımlayın.
+          Örneğin "her 4 kahveye 1 kahve bizden" gibi bir kural tanımlayın.
         </p>
       )}
 
@@ -112,7 +117,7 @@ export function LoyaltyPage() {
 
           <div className="loyalty__bar">
             <p className="muted">
-              {program.stampOnAppointment ? 'Tamamlanan her randevu bu karta otomatik damga basar.' : 'Damgalar kasada elle basılır.'}
+              {describeRule(program)} İptal edilen siparişin damgası geri alınır.
             </p>
             <button type="button" className="button button--quiet button--small" onClick={() => setDialog('edit-program')}>
               Programı düzenle
@@ -128,7 +133,9 @@ export function LoyaltyPage() {
           {cards?.length === 0 ? (
             <p className="panel empty">
               <strong>Bu programda henüz kart yok</strong>
-              İlk damgayı bastığınız müşterinin kartı kendiliğinden açılır.
+              {program.earnRule === 'appointment'
+                ? 'Bir müşterinin randevusu tamamlandığında kartı kendiliğinden açılır.'
+                : 'Kasada bir müşteriye sipariş kaydedildiğinde kartı kendiliğinden açılır.'}
             </p>
           ) : (
             <div className="cards">
@@ -137,9 +144,8 @@ export function LoyaltyPage() {
                   key={card.id}
                   card={card}
                   reward={program.reward}
-                  busy={stamp.isPending || redeem.isPending}
-                  onStamp={() => stamp.mutate(card.customerId)}
-                  onRedeem={() => redeem.mutate(card.id)}
+                  busy={redeem.isPending}
+                  onRedeem={program.earnRule === 'appointment' ? () => redeem.mutate(card.id) : undefined}
                 />
               ))}
             </div>
@@ -147,82 +153,81 @@ export function LoyaltyPage() {
         </>
       )}
 
-      {(dialog === 'program' || dialog === 'edit-program') && (
-        <FormDialog
-          title={dialog === 'program' ? 'Program ekle' : 'Programı düzenle'}
-          submitLabel="Kaydet"
+      {dialog && (
+        <ProgramDialog
+          program={dialog === 'edit-program' ? program : undefined}
           onSubmit={saveProgram}
           onSaved={closeAndRefresh}
           onClose={() => setDialog(undefined)}
-        >
-          <label className="field">
-            Program adı
-            <input name="name" required placeholder="Kahve Kartı" defaultValue={dialog === 'edit-program' ? program?.name : ''} />
-          </label>
-          <div className="field-row">
-            <label className="field">
-              Kaç damgada dolar?
-              <input name="stampsRequired" type="number" min={2} max={20} required
-                defaultValue={dialog === 'edit-program' ? program?.stampsRequired : 4} />
-            </label>
-            <label className="field">
-              Ödül
-              <input name="reward" required placeholder="1 kahve bizden" defaultValue={dialog === 'edit-program' ? program?.reward : ''} />
-            </label>
-          </div>
-          <label className="check">
-            <input type="checkbox" name="stampOnAppointment"
-              defaultChecked={dialog === 'edit-program' && program?.stampOnAppointment} />
-            <span>Randevu tamamlandığında otomatik damga bas (Randevu modülü açıksa)</span>
-          </label>
-          {dialog === 'edit-program' && (
-            <label className="check">
-              <input type="checkbox" name="isActive" defaultChecked={program?.isActive} />
-              <span>Program açık. Kapatırsanız yeni damga basılamaz, mevcut kartlar durur.</span>
-            </label>
-          )}
-        </FormDialog>
-      )}
-
-      {dialog === 'stamp' && program && (
-        <StampDialog
-          onClose={() => setDialog(undefined)}
-          onPick={(customerId) => {
-            setDialog(undefined)
-            stamp.mutate(customerId)
-          }}
         />
       )}
     </div>
   )
 }
 
-/** Finds the customer at the till: type a few letters or digits, pick, stamped. */
-function StampDialog({ onPick, onClose }: { onPick: (customerId: string) => void; onClose: () => void }) {
-  const [search, setSearch] = useState('')
-  const { data: customers } = useQuery({
-    queryKey: ['customers', search],
-    queryFn: () => api<Customer[]>(`/customers?search=${encodeURIComponent(search)}`),
-    placeholderData: (previous) => previous,
-  })
+interface ProgramDialogProps {
+  program: LoyaltyProgram | undefined
+  onSubmit: (fields: FormData) => Promise<unknown>
+  onSaved: () => void
+  onClose: () => void
+}
+
+function ProgramDialog({ program, onSubmit, onSaved, onClose }: ProgramDialogProps) {
+  const [rule, setRule] = useState<EarnRule>(program?.earnRule ?? 'item')
+  // Offers the till's own categories, so "Kahve" here is spelled the way the menu spells it.
+  const me = useQuery({ queryKey: ['me'], queryFn: () => api<Me>('/me') }).data
+  const hasOrders = me?.modules.some((module) => module.key === 'orders') ?? false
+  const { data: menu } = useQuery({ queryKey: ['orders', 'menu'], queryFn: () => api<MenuItem[]>('/orders/menu'), enabled: hasOrders })
+  const categories = [...new Set(menu?.map((item) => item.category))]
 
   return (
-    <Dialog title="Müşteriye damga bas" onClose={onClose}>
+    <FormDialog
+      title={program ? 'Programı düzenle' : 'Program ekle'}
+      submitLabel="Kaydet"
+      onSubmit={onSubmit}
+      onSaved={onSaved}
+      onClose={onClose}
+    >
       <label className="field">
-        Müşteri
-        <input type="search" autoFocus placeholder="Ad veya telefon" value={search} onChange={(event) => setSearch(event.target.value)} />
+        Program adı
+        <input name="name" required placeholder="Kahve Kartı" defaultValue={program?.name} />
       </label>
-      <ul className="pick-list" style={{ marginTop: '0.75rem' }}>
-        {customers?.slice(0, 8).map((customer) => (
-          <li key={customer.id}>
-            <button type="button" onClick={() => onPick(customer.id)}>
-              <strong>{customer.fullName}</strong>
-              <span className="muted num">{formatPhone(customer.phone)}</span>
-            </button>
-          </li>
+      <div className="field-row">
+        <label className="field">
+          Kaç damgada dolar?
+          <input name="stampsRequired" type="number" min={2} max={20} required defaultValue={program?.stampsRequired ?? 4} />
+        </label>
+        <label className="field">
+          Ödül
+          <input name="reward" required placeholder="1 kahve bizden" defaultValue={program?.reward} />
+        </label>
+      </div>
+      <fieldset className="earn-rules">
+        <legend>Damga nasıl kazanılır?</legend>
+        {EARN_RULES.map(({ rule: option, label }) => (
+          <label key={option} className="check">
+            <input type="radio" name="earnRule" value={option} checked={rule === option} onChange={() => setRule(option)} />
+            <span>{label}</span>
+          </label>
         ))}
-        {customers?.length === 0 && <li className="muted">Eşleşen müşteri yok. Önce Müşteriler bölümünden ekleyin.</li>}
-      </ul>
-    </Dialog>
+      </fieldset>
+      {rule !== 'appointment' && (
+        <label className="field">
+          Sadece bu kategori <small>Boş bırakırsanız her ürün sayılır. Ödül de bu kategoriden bir ürünü bedava yapar.</small>
+          <input name="category" list="program-categories" placeholder="Kahve" defaultValue={program?.category ?? ''} />
+          <datalist id="program-categories">
+            {categories.map((category) => (
+              <option key={category} value={category} />
+            ))}
+          </datalist>
+        </label>
+      )}
+      {program && (
+        <label className="check">
+          <input type="checkbox" name="isActive" defaultChecked={program.isActive} />
+          <span>Program açık. Kapatırsanız yeni damga işlenmez, mevcut kartlar durur.</span>
+        </label>
+      )}
+    </FormDialog>
   )
 }

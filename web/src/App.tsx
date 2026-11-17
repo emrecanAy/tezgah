@@ -11,6 +11,7 @@ import { FleetPage } from './modules/fleet/FleetPage'
 import { VehiclePage } from './modules/fleet/VehiclePage'
 import { InventoryPage } from './modules/inventory/InventoryPage'
 import { LoyaltyPage } from './modules/loyalty/LoyaltyPage'
+import { OrdersPage } from './modules/orders/OrdersPage'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
 
@@ -34,6 +35,7 @@ const MODULE_ROUTES: Record<ModuleKey, { path: string; element: React.ReactEleme
     { path: 'fleet/:vehicleId', element: <VehiclePage /> },
   ],
   inventory: [{ path: 'inventory', element: <InventoryPage /> }],
+  orders: [{ path: 'orders', element: <OrdersPage /> }],
 }
 
 export function App() {

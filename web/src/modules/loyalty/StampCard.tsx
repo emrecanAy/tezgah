@@ -5,13 +5,16 @@ import './StampCard.css'
 interface StampCardProps {
   card: LoyaltyCard
   reward: string
+  /** Hand the reward over here; only for programs whose rewards are not spent on an order. */
+  onRedeem?: () => void
   busy: boolean
-  onStamp: () => void
-  onRedeem: () => void
 }
 
-/** A customer's card as it would look on paper: one circle per purchase, inked as they add up. */
-export function StampCard({ card, reward, busy, onStamp, onRedeem }: StampCardProps) {
+/**
+ * A customer's card as it would look on paper: one circle per purchase, inked as they add up.
+ * It is read-only: stamps come from orders and appointments, never from a button.
+ */
+export function StampCard({ card, reward, onRedeem, busy }: StampCardProps) {
   const slots = Array.from({ length: card.stampsRequired }, (_, index) => index < card.stamps)
   const remaining = card.stampsRequired - card.stamps
 
@@ -41,16 +44,16 @@ export function StampCard({ card, reward, busy, onStamp, onRedeem }: StampCardPr
         )}
       </p>
 
-      <div className="stamp-card__actions">
-        <button type="button" className="button button--small" disabled={busy} onClick={onStamp}>
-          Damga bas
-        </button>
-        {card.rewardsAvailable > 0 && (
-          <button type="button" className="button button--quiet button--small" disabled={busy} onClick={onRedeem}>
-            Ödülü kullan
-          </button>
-        )}
-      </div>
+      {card.rewardsAvailable > 0 &&
+        (onRedeem ? (
+          <div className="stamp-card__actions">
+            <button type="button" className="button button--quiet button--small" disabled={busy} onClick={onRedeem}>
+              Ödülü teslim et
+            </button>
+          </div>
+        ) : (
+          <p className="muted stamp-card__hint">Kasada bu müşteriye sipariş girilirken kullanılır.</p>
+        ))}
     </article>
   )
 }
