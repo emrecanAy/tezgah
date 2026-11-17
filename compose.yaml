@@ -1,0 +1,47 @@
+# Everything:                 docker compose up --build        ->  http://localhost:8080
+# Only the database:          docker compose up -d postgres    (to run the API and web from source)
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: tezgah
+      POSTGRES_USER: tezgah
+      POSTGRES_PASSWORD: tezgah
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tezgah -d tezgah"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: src/Tezgah.Api/Dockerfile
+    environment:
+      ConnectionStrings__Postgres: Host=postgres;Database=tezgah;Username=tezgah;Password=tezgah
+      # Local-only values. A real installation supplies its own.
+      Auth__SigningKey: local-compose-signing-key-not-for-production-use
+      Platform__AdminEmail: admin@tezgah.local
+      Platform__AdminPassword: admin1234
+      Platform__SeedDemoData: "true"
+      Database__MigrateOnStartup: "true"
+      # Every module is shipped by default. compose.fleet.yaml shows an installation with fewer.
+    ports:
+      - "5080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build: ./web
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
+volumes:
+  postgres-data:

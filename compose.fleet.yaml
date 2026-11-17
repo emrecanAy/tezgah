@@ -1,0 +1,7 @@
+# The same build, shipped with the fleet module only, e.g. for a customer who bought just that:
+#   docker compose -f compose.yaml -f compose.fleet.yaml -p tezgah-fleet up --build
+# Other modules' code is still in the image but never registered: no endpoints, no tables.
+services:
+  api:
+    environment:
+      Platform__Modules__0: fleet
