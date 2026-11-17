@@ -74,9 +74,16 @@ internal static class AppointmentEndpoints
         var appointment = Appointment.Book(request.CustomerId, service, staff.Id, request.StartsAt.ToUniversalTime(), request.Notes);
         db.Appointments.Add(appointment);
 
+        // Bookings for one staff member queue up behind this lock. The exclusion constraint alone would
+        // still refuse an overlap, but overlapping inserts that check it at the same moment wait for each
+        // other, and PostgreSQL breaks that tie with a deadlock error instead of a clean violation.
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        var staffKey = $"appointments:staff:{staff.Id}";
+        await db.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock(hashtextextended({staffKey}, 0))", ct);
         try
         {
             await db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
         }
         catch (DbUpdateException ex) when (ex.IsExclusionViolation())
         {

@@ -122,7 +122,7 @@ Small businesses have two tills and a phone, and the same thing does happen twic
 
 | Situation | Guard | Test |
 |---|---|---|
-| Ten receptionists book the same 10:00 slot for the same stylist | PostgreSQL `EXCLUDE USING gist (staff_id WITH =, tstzrange(starts_at, ends_at) WITH &&)`. Cancelled appointments do not block | `Ten_people_booking_the_same_slot_at_once_produce_exactly_one_appointment` |
+| Ten receptionists book the same 10:00 slot for the same stylist | PostgreSQL `EXCLUDE USING gist (staff_id WITH =, tstzrange(starts_at, ends_at) WITH &&)`; cancelled appointments do not block. Bookings for one staff member queue up behind an advisory lock, because overlapping inserts checking the constraint at the same moment otherwise end in a deadlock error instead of a clean refusal | `Ten_people_booking_the_same_slot_at_once_produce_exactly_one_appointment` |
 | Two tills ring up orders for the same customer at the same moment | Every change to a customer's cards runs under a PostgreSQL advisory lock on that customer (`pg_advisory_xact_lock`). A row lock would not do: the first stamps race to create a card that has no row yet | `Stamps_from_orders_rung_up_at_the_same_moment_are_all_counted` |
 | One reward spent from several tills | Same lock; the reward is claimed before the order is saved | `One_reward_spent_from_several_tills_at_once_goes_to_one_order` |
 | A double tap or a retry sends the same order again | The till chooses the order id: the primary key stops the second insert, the reward claim and the stamps are keyed by it | `The_same_order_sent_several_times_at_once_is_recorded_and_stamped_once` |
