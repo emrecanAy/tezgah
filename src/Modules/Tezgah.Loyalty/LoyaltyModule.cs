@@ -13,13 +13,17 @@ public sealed class LoyaltyModule : IModule
     public const string Key = "loyalty";
 
     public ModuleInfo Info { get; } = new(
-        Key, "Sadakat", "Damga kartları: belirli sayıda alışverişe bir ödül.", DependsOn: "customers");
+        Key, "Sadakat", "Damga kartları: randevu ve siparişlerden otomatik damga, belirli sayıda alışverişe bir ödül.",
+        DependsOn: "customers");
 
     public void AddServices(IServiceCollection services)
     {
         services.AddModuleDbContext<LoyaltyDbContext>(Key);
         services.AddScoped<CardDesk>();
+        services.AddScoped<ILoyaltyRewards, LoyaltyRewards>();
         services.AddIntegrationEventHandler<AppointmentCompleted, AppointmentCompletedHandler>(Key);
+        services.AddIntegrationEventHandler<OrderPlaced, OrderPlacedHandler>(Key);
+        services.AddIntegrationEventHandler<OrderCancelled, OrderCancelledHandler>(Key);
     }
 
     public void MapEndpoints(RouteGroupBuilder api) => LoyaltyEndpoints.Map(api);
@@ -27,29 +31,23 @@ public sealed class LoyaltyModule : IModule
     public Task MigrateAsync(IServiceProvider services, CancellationToken ct) =>
         services.GetRequiredService<LoyaltyDbContext>().Database.MigrateAsync(ct);
 
+    /// <summary>
+    /// Only the programs. The cards fill up from the demo's appointments and orders, the same way
+    /// they do in real use.
+    /// </summary>
     public async Task SeedDemoAsync(IServiceProvider services, DemoBusiness business, CancellationToken ct)
     {
-        var (name, stamps, reward, onAppointment) = business switch
+        (string Name, int Stamps, string Reward, EarnRule Rule, string? Category) program = business switch
         {
-            DemoBusiness.Hairdresser => ("Saç Bakım Kartı", 4, "1 saç kesimi hediye", true),
-            DemoBusiness.Cafe => ("Kahve Kartı", 4, "1 kahve bizden", false),
-            _ => ("Sadakat Kartı", 5, "Bir sonraki alışverişte %10 indirim", false),
+            DemoBusiness.Hairdresser => ("Saç Bakım Kartı", 4, "1 saç kesimi hediye", EarnRule.Appointment, null),
+            DemoBusiness.Cafe => ("Kahve Kartı", 4, "1 kahve bizden", EarnRule.Item, "Kahve"),
+            _ => ("Sadakat Kartı", 5, "Bir sonraki alışverişte 1 ürün hediye", EarnRule.Order, null),
         };
 
         var db = services.GetRequiredService<LoyaltyDbContext>();
-        var program = LoyaltyProgram.Create(name, stamps, reward, onAppointment, services.GetRequiredService<TimeProvider>().GetUtcNow()).Value;
-        db.Programs.Add(program);
+        var now = services.GetRequiredService<TimeProvider>().GetUtcNow();
+        var (name, stamps, reward, rule, category) = program;
+        db.Programs.Add(LoyaltyProgram.Create(name, stamps, reward, rule, category, now).Value);
         await db.SaveChangesAsync(ct);
-
-        // Give the first customers cards at different stages, including one with a reward waiting.
-        var desk = services.GetRequiredService<CardDesk>();
-        var customers = await services.GetRequiredService<ICustomerDirectory>().ListAsync(6, ct);
-        for (var i = 0; i < customers.Count; i++)
-        {
-            for (var stamp = 0; stamp < (i == 0 ? stamps + 1 : Math.Min(i, stamps - 1)); stamp++)
-            {
-                await desk.StampAsync(program.Id, customers[i].Id, note: null, source: null, "Demo", ct);
-            }
-        }
     }
 }

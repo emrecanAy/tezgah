@@ -64,7 +64,7 @@ public sealed class AppointmentTests(TezgahApp app)
     {
         var salon = await SalonAsync("customers", "appointments", "loyalty");
         var program = await salon.Company.Api.PostAsync<LoyaltyEndpoints.ProgramResponse>("/api/loyalty/programs",
-            new { name = "Saç Bakım Kartı", stampsRequired = 4, reward = "1 kesim hediye", stampOnAppointment = true });
+            new { name = "Saç Bakım Kartı", stampsRequired = 4, reward = "1 kesim hediye", earnRule = "appointment" });
         var appointment = await BookAsync(salon, salon.Elif, Tomorrow10);
 
         (await salon.Company.Api.PostAsync($"/api/appointments/{appointment.Id}/complete", null)).EnsureSuccessStatusCode();

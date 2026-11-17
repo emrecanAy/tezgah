@@ -45,14 +45,18 @@ namespace Tezgah.Loyalty.Migrations
 
                     b.Property<string>("Kind")
                         .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
                         .HasColumnName("kind");
 
                     b.Property<string>("Note")
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)")
                         .HasColumnName("note");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer")
+                        .HasColumnName("quantity");
 
                     b.Property<string>("Source")
                         .HasMaxLength(100)
@@ -66,16 +70,20 @@ namespace Tezgah.Loyalty.Migrations
                     b.HasKey("Id")
                         .HasName("pk_card_entries");
 
+                    b.HasIndex("Source")
+                        .HasDatabaseName("ix_card_entries_source")
+                        .HasFilter("source IS NOT NULL");
+
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_card_entries_tenant_id");
 
-                    b.HasIndex("CardId", "Source")
-                        .IsUnique()
-                        .HasDatabaseName("ix_card_entries_card_id_source")
-                        .HasFilter("source IS NOT NULL");
-
                     b.HasIndex("TenantId", "CreatedAt")
                         .HasDatabaseName("ix_card_entries_tenant_id_created_at");
+
+                    b.HasIndex("CardId", "Kind", "Source")
+                        .IsUnique()
+                        .HasDatabaseName("ix_card_entries_card_id_kind_source")
+                        .HasFilter("source IS NOT NULL");
 
                     b.ToTable("card_entries", "loyalty");
                 });
@@ -133,9 +141,20 @@ namespace Tezgah.Loyalty.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("Category")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("category");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
+
+                    b.Property<string>("EarnRule")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("earn_rule");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
@@ -153,10 +172,6 @@ namespace Tezgah.Loyalty.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("reward");
 
-                    b.Property<bool>("StampOnAppointment")
-                        .HasColumnType("boolean")
-                        .HasColumnName("stamp_on_appointment");
-
                     b.Property<int>("StampsRequired")
                         .HasColumnType("integer")
                         .HasColumnName("stamps_required");
@@ -172,6 +187,39 @@ namespace Tezgah.Loyalty.Migrations
                         .HasDatabaseName("ix_programs_tenant_id");
 
                     b.ToTable("programs", "loyalty");
+                });
+
+            modelBuilder.Entity("Tezgah.Loyalty.VoidedSource", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("source");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("VoidedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("voided_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_voided_sources");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_voided_sources_tenant_id");
+
+                    b.HasIndex("TenantId", "Source")
+                        .IsUnique()
+                        .HasDatabaseName("ix_voided_sources_tenant_id_source");
+
+                    b.ToTable("voided_sources", "loyalty");
                 });
 
             modelBuilder.Entity("Tezgah.Loyalty.CardEntry", b =>

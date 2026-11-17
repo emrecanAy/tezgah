@@ -5,6 +5,7 @@ using Tezgah.Core.Contracts;
 using Tezgah.Core.Messaging;
 using Tezgah.Core.Modules;
 using Tezgah.Core.Persistence;
+using Tezgah.Core.Tenancy;
 
 namespace Tezgah.Appointments;
 
@@ -60,6 +61,23 @@ public sealed class AppointmentsModule : IModule
         {
             var (start, staff, service) = slots[i];
             db.Appointments.Add(Appointment.Book(customers[i].Id, offered[service], team[staff].Id, start.ToUniversalTime(), null));
+        }
+
+        // Past visits, completed the way the screen completes them, so loyalty cards fill from real history.
+        // The first customer has had four haircuts: a full card.
+        var tenantId = services.GetRequiredService<TenantContext>().TenantId;
+        (int Customer, int DaysAgo, int Service)[] visits =
+        [
+            (0, 70, 0), (0, 45, 0), (0, 24, 2), (0, 6, 0), (1, 30, 0), (1, 9, 3), (2, 14, 1),
+        ];
+        foreach (var (customer, daysAgo, service) in visits.Where(visit => visit.Customer < customers.Count))
+        {
+            var start = new DateTimeOffset(localNow.Year, localNow.Month, localNow.Day, 14, 0, 0, localNow.Offset).AddDays(-daysAgo);
+            var visit = Appointment.Book(
+                customers[customer].Id, offered[service], team[daysAgo % team.Length].Id, start.ToUniversalTime(), null);
+            visit.Complete();
+            db.Appointments.Add(visit);
+            db.Publish(new AppointmentCompleted(tenantId, visit.Id, visit.CustomerId, offered[service].Name, visit.EndsAt));
         }
 
         await db.SaveChangesAsync(ct);

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -11,19 +12,20 @@ namespace Tezgah.Loyalty;
 
 internal static class LoyaltyEndpoints
 {
-    public sealed record ProgramRequest(string? Name, int StampsRequired, string? Reward, bool StampOnAppointment, bool? IsActive);
+    /// <param name="EarnRule"><c>appointment</c>, <c>order</c> or <c>item</c>.</param>
+    /// <param name="Category">Only items of this menu category count, for order-based rules.</param>
+    public sealed record ProgramRequest(
+        string? Name, int StampsRequired, string? Reward, string? EarnRule, string? Category, bool? IsActive);
 
     public sealed record ProgramResponse(
-        Guid Id, string Name, int StampsRequired, string Reward, bool StampOnAppointment, bool IsActive, int CardCount)
+        Guid Id, string Name, int StampsRequired, string Reward, string EarnRule, string? Category, bool IsActive, int CardCount)
     {
         public static ProgramResponse From(LoyaltyProgram program, int cardCount) => new(
-            program.Id, program.Name, program.StampsRequired, program.Reward, program.StampOnAppointment,
-            program.IsActive, cardCount);
+            program.Id, program.Name, program.StampsRequired, program.Reward, program.EarnRule.ToString().ToLowerInvariant(),
+            program.Category, program.IsActive, cardCount);
     }
 
-    public sealed record StampRequest(Guid CustomerId, string? Note);
-
-    public sealed record EntryResponse(string Kind, string? Note, string CreatedBy, DateTimeOffset CreatedAt);
+    public sealed record EntryResponse(string Kind, int Quantity, string? Note, string CreatedBy, DateTimeOffset CreatedAt);
 
     public sealed record Summary(int ActivePrograms, int StampsThisWeek, int RewardsWaiting);
 
@@ -33,7 +35,6 @@ internal static class LoyaltyEndpoints
         api.MapPost("/programs", CreateProgramAsync);
         api.MapPut("/programs/{programId:guid}", UpdateProgramAsync);
         api.MapGet("/programs/{programId:guid}/cards", ListCardsAsync);
-        api.MapPost("/programs/{programId:guid}/stamps", StampAsync);
         api.MapPost("/cards/{cardId:guid}/redemptions", RedeemAsync);
         api.MapGet("/cards/{cardId:guid}/entries", ListEntriesAsync);
         api.MapGet("/summary", SummaryAsync);
@@ -53,8 +54,13 @@ internal static class LoyaltyEndpoints
     private static async Task<IResult> CreateProgramAsync(
         ProgramRequest request, LoyaltyDbContext db, TimeProvider time, CancellationToken ct)
     {
+        if (ParseEarnRule(request.EarnRule) is not { } earnRule)
+        {
+            return InvalidEarnRule().ToProblem();
+        }
+
         var program = LoyaltyProgram.Create(
-            request.Name, request.StampsRequired, request.Reward, request.StampOnAppointment, time.GetUtcNow());
+            request.Name, request.StampsRequired, request.Reward, earnRule, request.Category, time.GetUtcNow());
         if (!program.IsSuccess)
         {
             return program.Error.ToProblem();
@@ -74,9 +80,13 @@ internal static class LoyaltyEndpoints
             return ProgramNotFound().ToProblem();
         }
 
+        if (ParseEarnRule(request.EarnRule) is not { } earnRule)
+        {
+            return InvalidEarnRule().ToProblem();
+        }
+
         var updated = program.Update(
-            request.Name, request.StampsRequired, request.Reward, request.StampOnAppointment,
-            request.IsActive ?? program.IsActive);
+            request.Name, request.StampsRequired, request.Reward, earnRule, request.Category, request.IsActive ?? program.IsActive);
         if (!updated.IsSuccess)
         {
             return updated.Error.ToProblem();
@@ -105,10 +115,6 @@ internal static class LoyaltyEndpoints
         return Results.Ok(cards.ConvertAll(card => CardResponse.From(card, program, names.GetValueOrDefault(card.CustomerId))));
     }
 
-    private static async Task<IResult> StampAsync(
-        Guid programId, StampRequest request, ClaimsPrincipal user, CardDesk desk, CancellationToken ct) =>
-        (await desk.StampAsync(programId, request.CustomerId, request.Note, source: null, user.GetDisplayName(), ct)).ToHttp();
-
     private static async Task<IResult> RedeemAsync(Guid cardId, ClaimsPrincipal user, CardDesk desk, CancellationToken ct) =>
         (await desk.RedeemAsync(cardId, user.GetDisplayName(), ct)).ToHttp();
 
@@ -121,18 +127,27 @@ internal static class LoyaltyEndpoints
             .Take(50)
             .ToListAsync(ct);
 
-        return entries.ConvertAll(entry =>
-            new EntryResponse(entry.Kind.ToString().ToLowerInvariant(), entry.Note, entry.CreatedBy, entry.CreatedAt));
+        return entries.ConvertAll(entry => new EntryResponse(
+            JsonNamingPolicy.SnakeCaseLower.ConvertName(entry.Kind.ToString()), entry.Quantity, entry.Note, entry.CreatedBy,
+            entry.CreatedAt));
     }
 
     private static async Task<Summary> SummaryAsync(LoyaltyDbContext db, TimeProvider time, CancellationToken ct)
     {
         var weekAgo = time.GetUtcNow().AddDays(-7);
+        var recent = db.Entries.Where(entry => entry.CreatedAt >= weekAgo);
         return new Summary(
             await db.Programs.CountAsync(program => program.IsActive, ct),
-            await db.Entries.CountAsync(entry => entry.Kind == CardEntryKind.Stamp && entry.CreatedAt >= weekAgo, ct),
+            await recent.Where(entry => entry.Kind == CardEntryKind.Stamp).SumAsync(entry => entry.Quantity, ct)
+                - await recent.Where(entry => entry.Kind == CardEntryKind.StampReversal).SumAsync(entry => entry.Quantity, ct),
             await db.Cards.SumAsync(card => card.RewardsAvailable, ct));
     }
+
+    private static EarnRule? ParseEarnRule(string? value) =>
+        Enum.TryParse<EarnRule>(value, ignoreCase: true, out var rule) && Enum.IsDefined(rule) ? rule : null;
+
+    private static Error InvalidEarnRule() =>
+        Error.Validation("invalid_earn_rule", "Choose how stamps are earned: appointment, order or item.");
 
     private static Error ProgramNotFound() => Error.NotFound("program_not_found", "This loyalty program does not exist.");
 }

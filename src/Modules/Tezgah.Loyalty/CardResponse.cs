@@ -16,8 +16,9 @@ internal sealed record CardResponse(
 {
     public static CardResponse From(LoyaltyCard card, LoyaltyProgram program, CustomerRef? customer) => new(
         card.Id, card.ProgramId, card.CustomerId, customer?.FullName ?? "Silinmiş müşteri", customer?.Phone ?? "",
-        card.Stamps, program.StampsRequired, card.RewardsAvailable, card.RewardsRedeemed, card.UpdatedAt);
+        // A card that owes stamps after a cancellation shows as empty rather than with a minus.
+        Math.Max(card.Stamps, 0), program.StampsRequired, card.RewardsAvailable, card.RewardsRedeemed, card.UpdatedAt);
 }
 
-/// <param name="RewardEarned">This stamp filled the card.</param>
-internal sealed record StampResponse(CardResponse Card, bool RewardEarned);
+/// <param name="RewardsEarned">How many cards these stamps filled.</param>
+internal sealed record StampResponse(CardResponse Card, int RewardsEarned);
