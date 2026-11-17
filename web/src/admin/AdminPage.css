@@ -1,0 +1,43 @@
+.companies {
+  display: grid;
+  gap: 1rem;
+}
+
+.company {
+  padding: 1.1rem 1.25rem 1.25rem;
+}
+
+.company__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 1rem;
+  margin-bottom: 0.9rem;
+}
+
+.module-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.75rem 1.5rem;
+}
+
+.module-picker small {
+  display: block;
+}
+
+.company__modules-field {
+  margin: 0;
+  padding: 0.9rem 1rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+}
+
+.company__modules-field legend {
+  padding-inline: 0.4rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.company__modules-field .module-picker {
+  grid-template-columns: 1fr;
+}

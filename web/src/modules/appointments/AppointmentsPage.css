@@ -1,0 +1,140 @@
+.setup {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.setup__hint {
+  grid-column: 1 / -1;
+  padding: 0.7rem 1rem;
+  border-radius: var(--radius-small);
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.day-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.day-nav h2 {
+  margin-left: 0.6rem;
+}
+
+.agenda__scroll {
+  overflow-x: auto;
+}
+
+.agenda__grid {
+  --hour: 3.5rem;
+  display: grid;
+  grid-template-columns: 3.5rem repeat(var(--columns), minmax(9.5rem, 1fr));
+  min-width: max-content;
+}
+
+.agenda__corner,
+.agenda__staff {
+  padding: 0.7rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.agenda__staff {
+  border-left: 1px solid var(--line);
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.agenda__hours {
+  display: grid;
+  grid-auto-rows: var(--hour);
+}
+
+.agenda__hours span {
+  padding: 0.2rem 0.5rem 0 0;
+  text-align: right;
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.agenda__column {
+  position: relative;
+  height: calc(var(--hour) * 11);
+  border-left: 1px solid var(--line);
+  /* One line per hour, a fainter one on the half hour. */
+  background-image:
+    linear-gradient(to bottom, var(--line) 1px, transparent 1px),
+    linear-gradient(to bottom, #eef1ec 1px, transparent 1px);
+  background-size: 100% var(--hour), 100% calc(var(--hour) / 2);
+}
+
+.booking {
+  position: absolute;
+  inset-inline: 4px;
+  display: grid;
+  align-content: start;
+  min-height: 1.5rem;
+  padding: 0.2rem 0.5rem;
+  overflow: hidden;
+  border: 0;
+  border-left: 3px solid var(--appointments);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--appointments) 13%, white);
+  font-size: 0.8125rem;
+  line-height: 1.3;
+  text-align: left;
+  cursor: pointer;
+}
+
+.booking:hover {
+  background: color-mix(in srgb, var(--appointments) 22%, white);
+}
+
+.booking strong,
+.booking span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.booking--short {
+  align-content: center;
+  padding-block: 0;
+}
+
+.booking--short span {
+  display: none;
+}
+
+.booking--completed {
+  border-left-color: var(--ok);
+  background: var(--ok-soft);
+}
+
+.booking--cancelled,
+.booking--noshow {
+  border-left-color: #a5b0a8;
+  background: var(--paper);
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.9rem 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.facts dt {
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.facts dd {
+  font-weight: 600;
+}

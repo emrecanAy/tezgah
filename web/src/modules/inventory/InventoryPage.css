@@ -1,0 +1,56 @@
+.row-actions {
+  display: inline-flex;
+  gap: 0.35rem;
+}
+
+.level {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 9rem;
+}
+
+.level__track {
+  flex: 1;
+  height: 0.5rem;
+  max-width: 9rem;
+  border-radius: 99px;
+  background: #e6eae3;
+  overflow: hidden;
+}
+
+.level__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ok);
+}
+
+.level__fill--low {
+  background: var(--inventory);
+}
+
+.movements {
+  display: grid;
+  gap: 0.7rem;
+  max-height: 22rem;
+  overflow-y: auto;
+}
+
+.movements li {
+  display: grid;
+  grid-template-columns: 6.5rem 1fr;
+  gap: 0.75rem;
+  align-items: baseline;
+}
+
+.movements small {
+  display: block;
+}
+
+.movement--in {
+  color: var(--ok);
+}
+
+.movement--out {
+  color: var(--danger);
+}
