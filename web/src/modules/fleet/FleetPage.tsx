@@ -6,6 +6,7 @@ import type { FleetAlert, Vehicle } from '../../api/types'
 import { FormDialog } from '../../components/Dialog'
 import { describeDaysLeft, formatDate, formatNumber } from '../../lib/format'
 import { VehicleFields, readVehicle } from './VehicleFields'
+import { useCan } from '../../lib/access'
 import './Fleet.css'
 
 export const ALERT_LABEL: Record<FleetAlert['kind'], string> = {
@@ -15,6 +16,7 @@ export const ALERT_LABEL: Record<FleetAlert['kind'], string> = {
 }
 
 export function FleetPage() {
+  const canManage = useCan('fleet.vehicles')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [adding, setAdding] = useState(false)
@@ -29,9 +31,11 @@ export function FleetPage() {
           <h1>Filo</h1>
           <p>Araçlar, yakıt ve bakım kayıtları; yaklaşan muayene ve sigorta tarihleri.</p>
         </div>
-        <button type="button" className="button" onClick={() => setAdding(true)}>
-          Araç ekle
-        </button>
+        {canManage && (
+          <button type="button" className="button" onClick={() => setAdding(true)}>
+            Araç ekle
+          </button>
+        )}
       </header>
 
       {alerts.length > 0 && (

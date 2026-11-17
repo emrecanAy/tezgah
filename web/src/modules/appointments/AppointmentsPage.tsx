@@ -5,6 +5,7 @@ import type { Appointment, Customer, Service, StaffMember } from '../../api/type
 import { Dialog, FormDialog, num, text } from '../../components/Dialog'
 import { layoutDay } from '../../lib/agenda'
 import { addDays, formatLongDay, formatMoney, formatTime, startOfDay, toDateInput } from '../../lib/format'
+import { useCan } from '../../lib/access'
 import './AppointmentsPage.css'
 
 const OPEN_HOUR = 9
@@ -24,6 +25,8 @@ export function AppointmentsPage() {
   const [view, setView] = useState<'agenda' | 'setup'>('agenda')
   const [dialog, setDialog] = useState<'book' | 'service' | 'staff'>()
   const [opened, setOpened] = useState<Appointment>()
+  const canBook = useCan('appointments.book')
+  const canSetUp = useCan('appointments.setup')
 
   const { data: staff } = useQuery({ queryKey: ['appointments', 'staff'], queryFn: () => api<StaffMember[]>('/appointments/staff') })
   const { data: services } = useQuery({ queryKey: ['appointments', 'services'], queryFn: () => api<Service[]>('/appointments/services') })
@@ -63,9 +66,11 @@ export function AppointmentsPage() {
           <button type="button" className="button button--quiet" onClick={() => setView(view === 'agenda' ? 'setup' : 'agenda')}>
             {view === 'agenda' ? 'Hizmetler ve personel' : 'Takvime dön'}
           </button>
-          <button type="button" className="button" disabled={!ready} onClick={() => setDialog('book')}>
-            Randevu ver
-          </button>
+          {canBook && (
+            <button type="button" className="button" disabled={!ready} onClick={() => setDialog('book')}>
+              Randevu ver
+            </button>
+          )}
         </div>
       </header>
 
@@ -77,9 +82,11 @@ export function AppointmentsPage() {
           <section className="panel">
             <div className="panel__title">
               <h2>Hizmetler</h2>
-              <button type="button" className="button button--quiet button--small" onClick={() => setDialog('service')}>
-                Hizmet ekle
-              </button>
+              {canSetUp && (
+                <button type="button" className="button button--quiet button--small" onClick={() => setDialog('service')}>
+                  Hizmet ekle
+                </button>
+              )}
             </div>
             {services?.length ? (
               <table className="table">
@@ -103,9 +110,11 @@ export function AppointmentsPage() {
           <section className="panel">
             <div className="panel__title">
               <h2>Personel</h2>
-              <button type="button" className="button button--quiet button--small" onClick={() => setDialog('staff')}>
-                Personel ekle
-              </button>
+              {canSetUp && (
+                <button type="button" className="button button--quiet button--small" onClick={() => setDialog('staff')}>
+                  Personel ekle
+                </button>
+              )}
             </div>
             {staff?.length ? (
               <table className="table">
@@ -257,7 +266,7 @@ export function AppointmentsPage() {
               {close.error.message}
             </p>
           )}
-          {opened.status === 'scheduled' && (
+          {opened.status === 'scheduled' && canBook && (
             <div className="form-actions">
               <button type="button" className="button button--danger" disabled={close.isPending}
                 onClick={() => close.mutate({ id: opened.id, action: 'cancel' })}>

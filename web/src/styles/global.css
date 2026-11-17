@@ -371,3 +371,16 @@ textarea {
   border-radius: var(--radius-small);
   background: var(--surface);
 }
+
+/* A one-time password shown to be passed on: large, easy to read aloud, selected in one click. */
+.temporary-password {
+  margin: 1rem 0;
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-small);
+  background: var(--paper);
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: center;
+  user-select: all;
+}

@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react'
 import type { ModuleKey } from '../api/types'
 
-const paths: Record<ModuleKey | 'home', ReactElement> = {
+const paths: Record<ModuleKey | 'home' | 'team', ReactElement> = {
   home: <path d="M4 11.5 12 5l8 6.5V20h-5v-5H9v5H4z" />,
   customers: (
     <>
@@ -36,6 +36,13 @@ const paths: Record<ModuleKey | 'home', ReactElement> = {
       <path d="m4 7.5 8 4 8-4M12 11.5v9" />
     </>
   ),
+  team: (
+    <>
+      <circle cx="9" cy="8.5" r="3" />
+      <path d="M3.5 19.5c.6-3 2.8-4.8 5.5-4.8s4.9 1.8 5.5 4.8" />
+      <path d="M15.5 6a3 3 0 0 1 0 5.6M17.5 15c1.7.6 2.7 2.2 3 4.5" />
+    </>
+  ),
   orders: (
     <>
       <path d="M6 3.5h12v17l-2-1.4-2 1.4-2-1.4-2 1.4-2-1.4-2 1.4z" />
@@ -44,7 +51,7 @@ const paths: Record<ModuleKey | 'home', ReactElement> = {
   ),
 }
 
-export function ModuleIcon({ name }: { name: ModuleKey | 'home' }) {
+export function ModuleIcon({ name }: { name: ModuleKey | 'home' | 'team' }) {
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7"
       strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

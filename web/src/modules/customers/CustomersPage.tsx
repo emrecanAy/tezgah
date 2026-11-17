@@ -4,8 +4,10 @@ import { api, send } from '../../api/client'
 import type { Customer } from '../../api/types'
 import { FormDialog, text } from '../../components/Dialog'
 import { formatPhone } from '../../lib/format'
+import { useCan } from '../../lib/access'
 
 export function CustomersPage() {
+  const canEdit = useCan('customers.edit')
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   /** `'new'` while adding, a customer while editing. */
@@ -45,9 +47,11 @@ export function CustomersPage() {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
-          <button type="button" className="button" onClick={() => setEditing('new')}>
-            Müşteri ekle
-          </button>
+          {canEdit && (
+            <button type="button" className="button" onClick={() => setEditing('new')}>
+              Müşteri ekle
+            </button>
+          )}
         </div>
       </header>
 
@@ -78,7 +82,7 @@ export function CustomersPage() {
                   <td className="muted">{customer.email ?? ''}</td>
                   <td className="muted">{customer.notes ?? ''}</td>
                   <td className="right">
-                    <button type="button" className="button button--quiet button--small" onClick={() => setEditing(customer)}>
+                    <button type="button" className="button button--quiet button--small" disabled={!canEdit} onClick={() => setEditing(customer)}>
                       Düzenle
                     </button>
                   </td>

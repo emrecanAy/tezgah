@@ -1,9 +1,37 @@
 export type ModuleKey = 'customers' | 'loyalty' | 'appointments' | 'fleet' | 'inventory' | 'orders'
 
+export type Role = 'platform_admin' | 'owner' | 'manager' | 'staff'
+
 export interface Me {
-  user: { id: string; fullName: string; email: string; role: 'platform_admin' | 'owner' | 'staff' }
+  user: { id: string; fullName: string; email: string; role: Role; twoStepEnabled: boolean; mustChangePassword: boolean }
   company: { id: string; name: string; sector: string } | null
   modules: { key: ModuleKey; name: string; description: string }[]
+  /** What this user may do, e.g. "orders.cancel". The API checks again; this only hides what would be refused. */
+  permissions: string[]
+}
+
+export interface SignInResponse {
+  session: import('./client').Session | null
+  twoStepTicket: string | null
+}
+
+export interface TeamMember {
+  id: string
+  fullName: string
+  email: string
+  role: Exclude<Role, 'platform_admin'>
+  isActive: boolean
+  twoStepEnabled: boolean
+  mustChangePassword: boolean
+  lastSignInAt: string | null
+}
+
+export interface DeviceSession {
+  id: string
+  device: string | null
+  startedAt: string
+  lastUsedAt: string
+  isCurrent: boolean
 }
 
 export interface CatalogModule {
@@ -166,6 +194,7 @@ export interface Order {
   total: number
   rewardNote: string | null
   placedBy: string
+  placedById: string | null
   placedAt: string
 }
 

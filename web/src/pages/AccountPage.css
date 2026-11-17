@@ -1,0 +1,92 @@
+.account__notice {
+  margin-bottom: 1rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--radius-small);
+  background: var(--ok-soft);
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.account__section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+  padding: 1.1rem 1.25rem;
+}
+
+.account__section h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.25rem;
+  font-size: 1.05rem;
+}
+
+.account__section p {
+  max-width: 60ch;
+}
+
+.account__sessions {
+  margin-top: 2rem;
+}
+
+.account__sessions h2 {
+  margin-bottom: 0.25rem;
+}
+
+.account__sessions ul {
+  margin-top: 0.75rem;
+}
+
+.account__sessions li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1.1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.account__sessions li:last-child {
+  border-bottom: 0;
+}
+
+.account__sessions li div {
+  display: grid;
+}
+
+.two-step {
+  display: grid;
+  gap: 1.1rem;
+  padding-left: 1.2rem;
+}
+
+.two-step__qr {
+  display: grid;
+  place-items: center;
+  width: 200px;
+  height: 200px;
+  margin: 0.75rem 0 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  background: #fff;
+}
+
+.two-step__secret {
+  word-break: break-all;
+  font-size: 0.85rem;
+}
+
+.recovery-codes {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.4rem 1.5rem;
+  margin: 1rem 0;
+  padding: 1rem 1.2rem;
+  border-radius: var(--radius-small);
+  background: var(--paper);
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+}

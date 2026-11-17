@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, send } from '../api/client'
 import type { CatalogModule, CompanyAccount, ModuleKey } from '../api/types'
-import { FormDialog, text } from '../components/Dialog'
+import { Dialog, FormDialog, text } from '../components/Dialog'
 import { toggleModule } from '../lib/modules'
 import './AdminPage.css'
 
@@ -10,6 +10,7 @@ export function AdminPage() {
   const queryClient = useQueryClient()
   const [adding, setAdding] = useState(false)
   const [newModules, setNewModules] = useState<ModuleKey[]>([])
+  const [opened, setOpened] = useState<{ company: CompanyAccount; ownerTemporaryPassword: string }>()
 
   const { data: catalog } = useQuery({ queryKey: ['admin', 'modules'], queryFn: () => api<CatalogModule[]>('/admin/modules') })
   const { data: companies } = useQuery({ queryKey: ['admin', 'companies'], queryFn: () => api<CompanyAccount[]>('/admin/companies') })
@@ -64,10 +65,15 @@ export function AdminPage() {
         <FormDialog
           title="Firma ekle"
           submitLabel="Firmayı aç"
-          onSubmit={(fields) => send('POST', '/admin/companies', {
-            name: text(fields, 'name'), sector: text(fields, 'sector'), ownerFullName: text(fields, 'ownerFullName'),
-            ownerEmail: text(fields, 'ownerEmail'), ownerPassword: text(fields, 'ownerPassword'), modules: newModules,
-          })}
+          onSubmit={(fields) =>
+            send<{ company: CompanyAccount; ownerTemporaryPassword: string }>('POST', '/admin/companies', {
+              name: text(fields, 'name'),
+              sector: text(fields, 'sector'),
+              ownerFullName: text(fields, 'ownerFullName'),
+              ownerEmail: text(fields, 'ownerEmail'),
+              modules: newModules,
+            }).then(setOpened)
+          }
           onSaved={() => {
             setAdding(false)
             void queryClient.invalidateQueries({ queryKey: ['admin', 'companies'] })
@@ -88,21 +94,30 @@ export function AdminPage() {
             Yetkili adı soyadı
             <input name="ownerFullName" required />
           </label>
-          <div className="field-row">
-            <label className="field">
-              Yetkili e-postası
-              <input name="ownerEmail" type="email" required />
-            </label>
-            <label className="field">
-              İlk şifre <small>En az 8 karakter</small>
-              <input name="ownerPassword" type="text" minLength={8} required />
-            </label>
-          </div>
+          <label className="field">
+            Yetkili e-postası <small>Geçici bir şifre üretilir; yetkili ilk girişte kendi şifresini belirler.</small>
+            <input name="ownerEmail" type="email" required />
+          </label>
           <fieldset className="company__modules-field">
             <legend>Modüller</legend>
             <ModulePicker catalog={catalog} selection={newModules} disabled={false} onChange={setNewModules} />
           </fieldset>
         </FormDialog>
+      )}
+
+      {opened && (
+        <Dialog title={`${opened.company.name} açıldı`} onClose={() => setOpened(undefined)}>
+          <p>
+            Yetkilinin geçici şifresi aşağıda. {opened.company.ownerEmail} ile bir kez girecek ve hemen kendi şifresini
+            belirleyecek; siz o şifreyi hiç bilmeyeceksiniz. Bu şifre bir daha gösterilmeyecek.
+          </p>
+          <p className="temporary-password num">{opened.ownerTemporaryPassword}</p>
+          <div className="form-actions">
+            <button type="button" className="button" onClick={() => setOpened(undefined)}>
+              Tamam
+            </button>
+          </div>
+        </Dialog>
       )}
     </>
   )

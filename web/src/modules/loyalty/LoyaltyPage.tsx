@@ -4,6 +4,7 @@ import { api, send } from '../../api/client'
 import type { EarnRule, LoyaltyCard, LoyaltyProgram, Me, MenuItem } from '../../api/types'
 import { FormDialog, num, text } from '../../components/Dialog'
 import { StampCard } from './StampCard'
+import { useCan } from '../../lib/access'
 import './LoyaltyPage.css'
 
 const EARN_RULES: { rule: EarnRule; label: string }[] = [
@@ -28,6 +29,8 @@ function describeRule(program: LoyaltyProgram): string {
 }
 
 export function LoyaltyPage() {
+  const canManage = useCan('loyalty.programs')
+  const canRedeem = useCan('loyalty.redeem')
   const queryClient = useQueryClient()
   const [selectedId, setSelectedId] = useState<string>()
   const [dialog, setDialog] = useState<'program' | 'edit-program'>()
@@ -80,9 +83,11 @@ export function LoyaltyPage() {
           <h1>Sadakat</h1>
           <p>Damgalar sipariş ve randevulardan kendiliğinden işlenir; elle damga basılmaz.</p>
         </div>
-        <button type="button" className="button" onClick={() => setDialog('program')}>
-          Program ekle
-        </button>
+        {canManage && (
+          <button type="button" className="button" onClick={() => setDialog('program')}>
+            Program ekle
+          </button>
+        )}
       </header>
 
       {programs?.length === 0 && (
@@ -119,9 +124,11 @@ export function LoyaltyPage() {
             <p className="muted">
               {describeRule(program)} İptal edilen siparişin damgası geri alınır.
             </p>
-            <button type="button" className="button button--quiet button--small" onClick={() => setDialog('edit-program')}>
-              Programı düzenle
-            </button>
+            {canManage && (
+              <button type="button" className="button button--quiet button--small" onClick={() => setDialog('edit-program')}>
+                Programı düzenle
+              </button>
+            )}
           </div>
 
           {notice && (
@@ -145,7 +152,7 @@ export function LoyaltyPage() {
                   card={card}
                   reward={program.reward}
                   busy={redeem.isPending}
-                  onRedeem={program.earnRule === 'appointment' ? () => redeem.mutate(card.id) : undefined}
+                  onRedeem={program.earnRule === 'appointment' && canRedeem ? () => redeem.mutate(card.id) : undefined}
                 />
               ))}
             </div>

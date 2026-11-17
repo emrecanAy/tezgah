@@ -66,6 +66,25 @@
   outline-color: var(--brass);
 }
 
+.shell__link--secondary {
+  margin-top: 1rem;
+}
+
+.shell__account {
+  display: grid;
+  color: #fff;
+  text-decoration: none;
+}
+
+.shell__account small {
+  color: #9fb0a8;
+}
+
+.shell__account:hover small,
+.shell__account.active small {
+  color: var(--brass);
+}
+
 .shell__user {
   display: grid;
   gap: 0.2rem;

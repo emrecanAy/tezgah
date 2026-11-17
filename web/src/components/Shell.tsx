@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import type { Me } from '../api/types'
+import { ROLE_NAMES } from '../lib/access'
 import { ModuleIcon } from '../modules/icons'
 import './Shell.css'
 
@@ -49,8 +50,18 @@ export function Shell({ me, onSignOut }: ShellProps) {
           )}
         </nav>
 
+        {me.permissions.includes('team.manage') && (
+          <NavLink to="/team" className="shell__link shell__link--secondary">
+            <ModuleIcon name="team" />
+            Ekip
+          </NavLink>
+        )}
+
         <div className="shell__user">
-          <span>{me.user.fullName}</span>
+          <NavLink to="/account" className="shell__account">
+            <span>{me.user.fullName}</span>
+            <small>{ROLE_NAMES[me.user.role]}, hesabım</small>
+          </NavLink>
           <button type="button" onClick={onSignOut}>
             Çıkış yap
           </button>

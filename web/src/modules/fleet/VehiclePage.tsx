@@ -7,9 +7,12 @@ import { FormDialog, num, text } from '../../components/Dialog'
 import { formatDate, formatMoney, formatNumber, toDateInput } from '../../lib/format'
 import { AlertTag } from './FleetPage'
 import { VehicleFields, readVehicle } from './VehicleFields'
+import { useCan } from '../../lib/access'
 import './Fleet.css'
 
 export function VehiclePage() {
+  const canManage = useCan('fleet.vehicles')
+  const canLog = useCan('fleet.log')
   const { vehicleId = '' } = useParams()
   const queryClient = useQueryClient()
   const [dialog, setDialog] = useState<'fuel' | 'maintenance' | 'edit'>()
@@ -50,15 +53,21 @@ export function VehiclePage() {
           </p>
         </div>
         <div className="page-actions">
-          <button type="button" className="button button--quiet" onClick={() => setDialog('edit')}>
-            Düzenle
-          </button>
-          <button type="button" className="button button--quiet" onClick={() => setDialog('maintenance')}>
-            Bakım ekle
-          </button>
-          <button type="button" className="button" onClick={() => setDialog('fuel')}>
-            Yakıt ekle
-          </button>
+          {canManage && (
+            <button type="button" className="button button--quiet" onClick={() => setDialog('edit')}>
+              Düzenle
+            </button>
+          )}
+          {canLog && (
+            <>
+              <button type="button" className="button button--quiet" onClick={() => setDialog('maintenance')}>
+                Bakım ekle
+              </button>
+              <button type="button" className="button" onClick={() => setDialog('fuel')}>
+                Yakıt ekle
+              </button>
+            </>
+          )}
         </div>
       </header>
 

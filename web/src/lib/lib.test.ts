@@ -5,6 +5,8 @@ import { layoutDay } from './agenda'
 import { toggleModule } from './modules'
 import { byCategory, changeQuantity, ticketTotals } from './ticket'
 import { isCounted, parseQuantity } from './units'
+import { mayCancelOrder } from './access'
+import { describeDevice } from './devices'
 
 describe('format', () => {
   it('groups a Turkish mobile number however many leading zeros it was stored with', () => {
@@ -114,5 +116,32 @@ describe('stock quantities', () => {
   it('knows which units are counted in whole numbers', () => {
     expect(isCounted('adet')).toBe(true)
     expect(isCounted('kg')).toBe(false)
+  })
+})
+
+describe('access', () => {
+  const me = (permissions: string[]) => ({
+    user: { id: 'u1', fullName: 'Deniz', email: 'd@x', role: 'staff' as const, twoStepEnabled: false, mustChangePassword: false },
+    company: null,
+    modules: [],
+    permissions,
+  })
+  const placedAt = new Date('2026-11-18T10:00:00Z')
+  const at = (minutes: number) => placedAt.getTime() + minutes * 60_000
+
+  it('lets staff cancel their own order for 15 minutes and a manager any order', () => {
+    const own = { placedById: 'u1', placedAt: placedAt.toISOString() }
+    const colleagues = { placedById: 'u2', placedAt: placedAt.toISOString() }
+
+    expect(mayCancelOrder(me(['orders.sell']), own, at(15))).toBe(true)
+    expect(mayCancelOrder(me(['orders.sell']), own, at(16))).toBe(false)
+    expect(mayCancelOrder(me(['orders.sell']), colleagues, at(1))).toBe(false)
+    expect(mayCancelOrder(me(['orders.cancel']), colleagues, at(600))).toBe(true)
+  })
+
+  it('names the browser and the system of a session', () => {
+    const chromeOnMac = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36'
+    expect(describeDevice(chromeOnMac)).toBe('Chrome, Mac')
+    expect(describeDevice(null)).toBe('Bilinmeyen cihaz')
   })
 })

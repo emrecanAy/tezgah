@@ -5,11 +5,14 @@ import type { Product, StockMovement } from '../../api/types'
 import { Dialog, FormDialog, num, text } from '../../components/Dialog'
 import { formatDateTime, formatNumber } from '../../lib/format'
 import { UNITS, isCounted, parseQuantity } from '../../lib/units'
+import { useCan } from '../../lib/access'
 import './InventoryPage.css'
 
 type Action = { kind: 'add' } | { kind: 'in' | 'out' | 'history'; product: Product }
 
 export function InventoryPage() {
+  const canManageProducts = useCan('inventory.products')
+  const canMove = useCan('inventory.move')
   const queryClient = useQueryClient()
   const [action, setAction] = useState<Action>()
   const { data: products } = useQuery({ queryKey: ['inventory', 'products'], queryFn: () => api<Product[]>('/inventory/products') })
@@ -32,9 +35,11 @@ export function InventoryPage() {
               : `${low.length} ürün azaldı: ${low.map((product) => product.name).join(', ')}.`}
           </p>
         </div>
-        <button type="button" className="button" onClick={() => setAction({ kind: 'add' })}>
-          Ürün ekle
-        </button>
+        {canManageProducts && (
+          <button type="button" className="button" onClick={() => setAction({ kind: 'add' })}>
+            Ürün ekle
+          </button>
+        )}
       </header>
 
       <div className="panel table-scroll">
@@ -69,12 +74,16 @@ export function InventoryPage() {
                   </td>
                   <td className="right">
                     <div className="row-actions">
-                      <button type="button" className="button button--quiet button--small" onClick={() => setAction({ kind: 'in', product })}>
-                        Giriş
-                      </button>
-                      <button type="button" className="button button--quiet button--small" onClick={() => setAction({ kind: 'out', product })}>
-                        Çıkış
-                      </button>
+                      {canMove && (
+                        <>
+                          <button type="button" className="button button--quiet button--small" onClick={() => setAction({ kind: 'in', product })}>
+                            Giriş
+                          </button>
+                          <button type="button" className="button button--quiet button--small" onClick={() => setAction({ kind: 'out', product })}>
+                            Çıkış
+                          </button>
+                        </>
+                      )}
                       <button type="button" className="button button--quiet button--small" onClick={() => setAction({ kind: 'history', product })}>
                         Hareketler
                       </button>

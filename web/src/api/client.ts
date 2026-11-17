@@ -1,4 +1,19 @@
-const TOKEN_KEY = 'tezgah.token'
+/**
+ * The access token lives only in this module's memory: a script injected into the page cannot find
+ * it in storage, and closing the tab forgets it. The refresh token is in an HttpOnly cookie the page
+ * cannot read at all; the browser sends it to /api/auth and nowhere else.
+ */
+let accessToken: string | null = null
+
+export interface Session {
+  accessToken: string
+  expiresAt: string
+  mustChangePassword: boolean
+}
+
+export function setSession(session: Session | null): void {
+  accessToken = session?.accessToken ?? null
+}
 
 /** An error the API explained with a problem document. `code` is stable; `message` is ready to show. */
 export class ApiError extends Error {
@@ -14,11 +29,27 @@ export class ApiError extends Error {
 /** What the user reads for each error code. The API's own `detail` is English and meant for developers. */
 const MESSAGES: Record<string, string> = {
   invalid_credentials: 'E-posta adresi veya şifre hatalı.',
+  too_many_attempts: 'Çok fazla hatalı deneme yapıldı. 15 dakika sonra tekrar deneyin.',
+  too_many_requests: 'Bu adresten çok fazla giriş denemesi geldi. Bir dakika bekleyin.',
+  account_disabled: 'Bu hesap firmanız tarafından kapatıldı.',
+  invalid_code: 'Kod hatalı ya da daha önce kullanılmış.',
+  ticket_expired: 'Giriş çok uzun sürdü. Şifreyle baştan başlayın.',
+  weak_password: 'Şifre en az 12 karakter olmalı ve kolay tahmin edilmemeli. Birkaç kelimelik bir cümle iyi bir şifredir.',
+  wrong_password: 'Mevcut şifre hatalı.',
+  same_password: 'Yeni şifre eskisiyle aynı olamaz.',
+  two_step_already_enabled: 'İki adımlı giriş zaten açık.',
+  two_step_not_started: 'Önce kurulumu başlatın.',
+  session_not_found: 'Bu oturum bulunamadı.',
+  invalid_member: 'Ad ve geçerli bir e-posta adresi gerekli.',
+  invalid_role: 'Rol patron, yönetici veya personel olabilir.',
+  email_in_use: 'Bu e-posta adresiyle bir hesap zaten var.',
+  member_not_found: 'Bu kişi firmanızda değil.',
+  cannot_change_self: 'Kendi rolünüzü veya erişiminizi başka bir patron değiştirebilir.',
+  last_owner: 'Firmada en az bir aktif patron kalmalı.',
+  cancel_not_allowed: 'Bu siparişi yalnızca yönetici iptal edebilir. Personel kendi siparişini 15 dakika içinde iptal edebilir.',
   module_not_enabled: 'Bu modül firmanız için açık değil.',
   invalid_module_selection: 'Bu modül seçimi geçerli değil: bağımlı olduğu modül de seçilmeli.',
   invalid_company: 'Firma adı, sektör, yetkili adı ve geçerli bir e-posta gerekli.',
-  weak_password: 'Şifre en az 8 karakter olmalı.',
-  email_in_use: 'Bu e-posta adresi başka bir hesapta kullanılıyor.',
   invalid_customer: 'Ad soyad ve en az 10 haneli bir telefon numarası gerekli.',
   phone_in_use: 'Bu telefon numarasıyla kayıtlı bir müşteri zaten var.',
   customer_not_found: 'Müşteri bulunamadı.',
@@ -63,50 +94,83 @@ const MESSAGES: Record<string, string> = {
   concurrent_update: 'Kayıt siz çalışırken değişti. Sayfayı yenileyip tekrar deneyin.',
 }
 
-export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY)
-}
-
-export function setToken(token: string | null): void {
-  if (token) localStorage.setItem(TOKEN_KEY, token)
-  else localStorage.removeItem(TOKEN_KEY)
-}
-
-/** Called when the API rejects the stored token, so the app can fall back to the sign-in screen. */
+/** Called when the session cannot be renewed any more, so the app can fall back to the sign-in screen. */
 let onSignedOut: () => void = () => {}
 
 export function setSignedOutHandler(handler: () => void): void {
   onSignedOut = handler
 }
 
-export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = getToken()
+// Sent with every request. The auth endpoints refuse requests without it, which is what keeps another
+// site from using the refresh cookie: a cross-site form cannot set it, a cross-site script would need
+// a CORS permission the API never gives.
+const CLIENT_HEADER = { 'X-Requested-With': 'tezgah' }
+
+let refreshing: Promise<boolean> | null = null
+
+/**
+ * Trades the refresh cookie for a new access token. Each refresh token works once, so two tabs must
+ * not refresh with the same cookie at the same moment: a Web Lock makes them take turns, and the
+ * second one simply uses the cookie the first one received.
+ */
+export function refreshSession(): Promise<boolean> {
+  refreshing ??= withLock(async () => {
+    const response = await fetch('/api/auth/refresh', { method: 'POST', headers: CLIENT_HEADER, credentials: 'same-origin' })
+    if (!response.ok) {
+      setSession(null)
+      return false
+    }
+    setSession((await response.json()) as Session)
+    return true
+  }).finally(() => {
+    refreshing = null
+  })
+  return refreshing
+}
+
+function withLock<T>(work: () => Promise<T>): Promise<T> {
+  return typeof navigator !== 'undefined' && navigator.locks
+    ? navigator.locks.request('tezgah-refresh', work)
+    : work()
+}
+
+export async function api<T>(path: string, init: RequestInit = {}, retried = false): Promise<T> {
   const response = await fetch(`/api${path}`, {
     ...init,
-    headers: { ...init.headers, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    credentials: 'same-origin',
+    headers: { ...init.headers, ...CLIENT_HEADER, ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
   })
 
   if (response.ok) {
     return response.status === 204 ? (undefined as T) : ((await response.json()) as T)
   }
 
-  const problem = (await response.json().catch(() => null)) as { code?: string } | null
-  if (response.status === 401 && problem?.code !== 'invalid_credentials') {
-    setToken(null)
+  // The access token ran out (or was ended by a password or role change): renew once and repeat.
+  const isAuthCall = path.startsWith('/auth/')
+  if (response.status === 401 && !isAuthCall && !retried) {
+    if (await refreshSession()) return api<T>(path, init, true)
     onSignedOut()
   }
 
+  const problem = (await response.json().catch(() => null)) as { code?: string } | null
   throw new ApiError(
     response.status,
     problem?.code,
-    (problem?.code && MESSAGES[problem.code]) ?? 'İşlem tamamlanamadı. Lütfen tekrar deneyin.',
+    (problem?.code && MESSAGES[problem.code]) ??
+      (response.status === 403 ? 'Bu işlem için yetkiniz yok.' : 'İşlem tamamlanamadı. Lütfen tekrar deneyin.'),
   )
 }
 
-export function send<T>(method: 'POST' | 'PUT', path: string, body?: unknown): Promise<T> {
+export function send<T>(method: 'POST' | 'PUT' | 'DELETE', path: string, body?: unknown): Promise<T> {
   return api<T>(path, {
     method,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body ?? {}),
+    body: method === 'DELETE' ? undefined : JSON.stringify(body ?? {}),
   })
+}
+
+/** Ends the session on the server too, so the refresh cookie is worthless even if it was copied. */
+export async function signOut(): Promise<void> {
+  await fetch('/api/auth/sign-out', { method: 'POST', headers: CLIENT_HEADER, credentials: 'same-origin' }).catch(() => {})
+  setSession(null)
 }

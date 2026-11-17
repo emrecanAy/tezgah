@@ -6,11 +6,14 @@ import { CustomerPicker } from '../../components/CustomerPicker'
 import { Dialog, FormDialog, num, text } from '../../components/Dialog'
 import { addDays, formatMoney, formatPhone, formatTime, startOfDay } from '../../lib/format'
 import { type TicketLine, byCategory, changeQuantity, ticketTotals } from '../../lib/ticket'
+import { mayCancelOrder, useCan, useMe } from '../../lib/access'
 import './OrdersPage.css'
 
 type MenuAction = { kind: 'menu' } | { kind: 'add' } | { kind: 'edit'; item: MenuItem }
 
 export function OrdersPage() {
+  const me = useMe()
+  const canEditMenu = useCan('orders.menu')
   const queryClient = useQueryClient()
   const [menuAction, setMenuAction] = useState<MenuAction>()
   const [cancelling, setCancelling] = useState<Order>()
@@ -36,18 +39,22 @@ export function OrdersPage() {
             Bugün {placed.length} sipariş, {formatMoney(takings)} ciro.
           </p>
         </div>
-        <button type="button" className="button button--quiet" onClick={() => setMenuAction({ kind: 'menu' })}>
-          Menüyü düzenle
-        </button>
+        {canEditMenu && (
+          <button type="button" className="button button--quiet" onClick={() => setMenuAction({ kind: 'menu' })}>
+            Menüyü düzenle
+          </button>
+        )}
       </header>
 
       {menu?.length === 0 ? (
         <p className="panel empty">
           <strong>Menünüz boş</strong>
-          Sattığınız ilk ürünü ekleyin; kasa tutarı menüdeki fiyattan hesaplar.
-          <button type="button" className="button" style={{ marginTop: '1rem' }} onClick={() => setMenuAction({ kind: 'add' })}>
-            Menüye ürün ekle
-          </button>
+          {canEditMenu ? 'Sattığınız ilk ürünü ekleyin; kasa tutarı menüdeki fiyattan hesaplar.' : 'Menüyü bir yönetici hazırlamalı.'}
+          {canEditMenu && (
+            <button type="button" className="button" style={{ marginTop: '1rem' }} onClick={() => setMenuAction({ kind: 'add' })}>
+              Menüye ürün ekle
+            </button>
+          )}
         </p>
       ) : (
         menu && <Till menu={menu} onPlaced={refresh} />
@@ -85,9 +92,11 @@ export function OrdersPage() {
                       {order.status === 'cancelled' ? (
                         <span className="tag">İptal edildi</span>
                       ) : (
-                        <button type="button" className="button button--danger button--small" onClick={() => setCancelling(order)}>
-                          İptal et
-                        </button>
+                        mayCancelOrder(me, order) && (
+                          <button type="button" className="button button--danger button--small" onClick={() => setCancelling(order)}>
+                            İptal et
+                          </button>
+                        )
                       )}
                     </td>
                   </tr>
