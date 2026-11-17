@@ -1,0 +1,67 @@
+using Microsoft.AspNetCore.Routing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Tezgah.Core.Contracts;
+using Tezgah.Core.Messaging;
+using Tezgah.Core.Modules;
+using Tezgah.Core.Persistence;
+
+namespace Tezgah.Appointments;
+
+public sealed class AppointmentsModule : IModule
+{
+    public const string Key = "appointments";
+
+    public ModuleInfo Info { get; } = new(
+        Key, "Randevu", "Hizmetler, personel takvimi ve çakışmayan randevular.", DependsOn: "customers");
+
+    public void AddServices(IServiceCollection services)
+    {
+        services.AddModuleDbContext<AppointmentsDbContext>(Key);
+        services.AddOutbox<AppointmentsDbContext>();
+    }
+
+    public void MapEndpoints(RouteGroupBuilder api)
+    {
+        SetupEndpoints.Map(api);
+        AppointmentEndpoints.Map(api);
+    }
+
+    public Task MigrateAsync(IServiceProvider services, CancellationToken ct) =>
+        services.GetRequiredService<AppointmentsDbContext>().Database.MigrateAsync(ct);
+
+    public async Task SeedDemoAsync(IServiceProvider services, DemoBusiness business, CancellationToken ct)
+    {
+        var db = services.GetRequiredService<AppointmentsDbContext>();
+
+        Service[] offered =
+        [
+            Service.Create("Saç Kesimi", 45, 450m).Value,
+            Service.Create("Fön", 30, 250m).Value,
+            Service.Create("Saç Boyama", 120, 1800m).Value,
+            Service.Create("Sakal Tıraşı", 20, 200m).Value,
+        ];
+        StaffMember[] team = [StaffMember.Create("Elif").Value, StaffMember.Create("Kerem").Value, StaffMember.Create("Seda").Value];
+        db.AddRange(offered);
+        db.AddRange(team);
+
+        // A plausible afternoon and a morning tomorrow, in the company's local time (UTC+3).
+        var customers = await services.GetRequiredService<ICustomerDirectory>().ListAsync(8, ct);
+        var localNow = services.GetRequiredService<TimeProvider>().GetUtcNow().ToOffset(TimeSpan.FromHours(3));
+        var nextHour = new DateTimeOffset(localNow.Year, localNow.Month, localNow.Day, localNow.Hour, 0, 0, localNow.Offset).AddHours(1);
+        var tomorrow = new DateTimeOffset(localNow.Year, localNow.Month, localNow.Day, 10, 0, 0, localNow.Offset).AddDays(1);
+
+        (DateTimeOffset Start, int Staff, int Service)[] slots =
+        [
+            (nextHour, 0, 0), (nextHour, 1, 3), (nextHour.AddMinutes(30), 2, 1), (nextHour.AddHours(1), 0, 2),
+            (tomorrow, 0, 0), (tomorrow, 1, 0), (tomorrow.AddHours(1), 2, 2), (tomorrow.AddHours(2), 1, 1),
+        ];
+        for (var i = 0; i < slots.Length && i < customers.Count; i++)
+        {
+            var (start, staff, service) = slots[i];
+            db.Appointments.Add(Appointment.Book(customers[i].Id, offered[service], team[staff].Id, start.ToUniversalTime(), null));
+        }
+
+        await db.SaveChangesAsync(ct);
+    }
+}
