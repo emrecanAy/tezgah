@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Tezgah.Core.Persistence;
 using Tezgah.Core.Results;
+using Tezgah.Core.Security;
 using Tezgah.Core.Web;
 
 namespace Tezgah.Inventory;
@@ -30,12 +31,12 @@ internal static class InventoryEndpoints
 
     public static void Map(RouteGroupBuilder api)
     {
-        api.MapGet("/products", ListAsync);
-        api.MapPost("/products", CreateAsync);
-        api.MapPut("/products/{productId:guid}", UpdateAsync);
-        api.MapPost("/products/{productId:guid}/movements", MoveAsync);
-        api.MapGet("/products/{productId:guid}/movements", ListMovementsAsync);
-        api.MapGet("/summary", SummaryAsync);
+        api.MapGet("/products", ListAsync).RequirePermission(InventoryPermissions.View);
+        api.MapPost("/products", CreateAsync).RequirePermission(InventoryPermissions.ManageProducts);
+        api.MapPut("/products/{productId:guid}", UpdateAsync).RequirePermission(InventoryPermissions.ManageProducts);
+        api.MapPost("/products/{productId:guid}/movements", MoveAsync).RequirePermission(InventoryPermissions.Move);
+        api.MapGet("/products/{productId:guid}/movements", ListMovementsAsync).RequirePermission(InventoryPermissions.View);
+        api.MapGet("/summary", SummaryAsync).RequirePermission(InventoryPermissions.View);
     }
 
     private static async Task<IReadOnlyList<ProductResponse>> ListAsync(InventoryDbContext db, CancellationToken ct) =>

@@ -1,13 +1,18 @@
+using System.Security.Claims;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
 using Tezgah.Core.Modules;
 using Tezgah.Core.Persistence;
+using Tezgah.Core.Results;
+using Tezgah.Core.Security;
 using Tezgah.Core.Tenancy;
 using Tezgah.Core.Web;
 using Tezgah.Platform.Admin;
@@ -15,6 +20,7 @@ using Tezgah.Platform.Auth;
 using Tezgah.Platform.Demo;
 using Tezgah.Platform.Domain;
 using Tezgah.Platform.Persistence;
+using Tezgah.Platform.Team;
 
 namespace Tezgah.Platform;
 
@@ -33,25 +39,66 @@ public static class PlatformSetup
         services.AddScoped<ITenantModules>(provider => provider.GetRequiredService<TenantModules>());
         services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
         services.AddSingleton<AccessTokens>();
+        services.AddSingleton<Secrets>();
+        services.AddSingleton<SessionCheck>();
+        services.AddScoped<Sessions>();
+        services.AddScoped<SignIn>();
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
         services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
             .Configure<IOptions<AuthOptions>>((jwt, auth) =>
             {
                 jwt.MapInboundClaims = false;
-                jwt.TokenValidationParameters = new TokenValidationParameters
+                jwt.TokenValidationParameters = AccessTokens.Validation(auth.Value, AuthOptions.ApiAudience);
+                jwt.Events = new JwtBearerEvents
                 {
-                    ValidIssuer = AuthOptions.Issuer,
-                    ValidateAudience = false,
-                    IssuerSigningKey = AccessTokens.SigningKey(auth.Value),
-                    NameClaimType = UserClaims.Name,
-                    RoleClaimType = UserClaims.Role,
+                    // A valid signature is not enough: the user must still be active and the token must
+                    // come from their current session version.
+                    OnTokenValidated = async context =>
+                    {
+                        var check = context.HttpContext.RequestServices.GetRequiredService<SessionCheck>();
+                        var user = context.Principal!;
+                        if (!await check.IsCurrentAsync(
+                                user.FindFirstValue(UserClaims.UserId), user.FindFirstValue(UserClaims.SessionVersion),
+                                context.HttpContext.RequestAborted))
+                        {
+                            context.Fail("The session behind this token has ended.");
+                        }
+                    },
                 };
             });
 
+        // Anything not marked otherwise needs a signed-in user; anonymous endpoints say so explicitly.
         services.AddAuthorizationBuilder()
-            .AddPolicy(Policies.PlatformAdmin, policy => policy.RequireRole(Roles.PlatformAdmin))
-            .AddPolicy(Policies.TenantUser, policy => policy.RequireClaim(UserClaims.TenantId));
+            .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
+            .AddPolicy(Policies.PasswordSet, policy => policy
+                .RequireAuthenticatedUser()
+                .RequireAssertion(context => !context.User.HasClaim(c => c.Type == UserClaims.PasswordChangeRequired)))
+            .AddPolicy(Policies.PlatformAdmin, policy => policy
+                .RequireRole(Roles.PlatformAdmin)
+                .RequireAssertion(context => !context.User.HasClaim(c => c.Type == UserClaims.PasswordChangeRequired)))
+            .AddPolicy(Policies.TenantUser, policy => policy
+                .RequireClaim(UserClaims.TenantId)
+                .RequireAssertion(context => !context.User.HasClaim(c => c.Type == UserClaims.PasswordChangeRequired)));
+        services.AddPermissions();
+
+        // Per address, on top of the per-account lockout: one machine cannot try many accounts quickly either.
+        services.AddRateLimiter(limiter =>
+        {
+            limiter.AddPolicy(AuthEndpoints.SignInRateLimit, http =>
+            {
+                var perMinute = http.RequestServices.GetRequiredService<IOptions<AuthOptions>>().Value.SignInRequestsPerMinute;
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    _ => new FixedWindowRateLimiterOptions { PermitLimit = perMinute, Window = TimeSpan.FromMinutes(1) });
+            });
+            limiter.OnRejected = async (context, ct) =>
+            {
+                context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+                await Error.TooManyRequests("too_many_requests", "Too many sign-in attempts from this address. Wait a minute.")
+                    .ToProblem().ExecuteAsync(context.HttpContext);
+            };
+        });
 
         return services;
     }
@@ -71,6 +118,8 @@ public static class PlatformSetup
     public static void MapPlatformEndpoints(this IEndpointRouteBuilder api)
     {
         AuthEndpoints.Map(api);
+        AccountEndpoints.Map(api);
+        TeamEndpoints.Map(api);
         AdminEndpoints.Map(api);
     }
 
@@ -88,10 +137,16 @@ public static class PlatformSetup
         }
 
         var email = User.NormalizeEmail(options.AdminEmail);
+        if (PasswordPolicy.Check(options.AdminPassword, email) is { IsSuccess: false } weak)
+        {
+            throw new InvalidOperationException($"Platform:AdminPassword is not accepted: {weak.Error.Message}");
+        }
+
         if (!await db.Users.AnyAsync(user => user.Email == email, ct))
         {
-            var admin = User.Create(tenantId: null, email, "Platform Yöneticisi", Roles.PlatformAdmin);
-            admin.SetPasswordHash(
+            var now = scope.ServiceProvider.GetRequiredService<TimeProvider>().GetUtcNow();
+            var admin = User.Create(tenantId: null, email, "Platform Yöneticisi", Roles.PlatformAdmin, now);
+            admin.SetPassword(
                 scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>().HashPassword(admin, options.AdminPassword));
             db.Users.Add(admin);
             await db.SaveChangesAsync(ct);

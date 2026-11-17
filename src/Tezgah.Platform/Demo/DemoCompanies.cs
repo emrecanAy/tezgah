@@ -11,20 +11,22 @@ namespace Tezgah.Platform.Demo;
 
 /// <summary>
 /// Three example companies, each with a different slice of the platform, so the idea
-/// "same installation, different modules per firm" is visible right after the first start.
+/// "same installation, different modules per firm" is visible right after the first start. Each has
+/// an owner and a member of staff, so the difference between the roles can be tried.
 /// </summary>
 internal static class DemoCompanies
 {
-    public const string Password = "demo1234";
+    /// <summary>Shared by every demo account, which is fine for a demo and only for a demo.</summary>
+    public const string Password = "tezgah-demo-2026";
 
     private static readonly DemoCompany[] Companies =
     [
-        new("Makas Kuaför", "Kuaför", "Elif Demir", "makas@tezgah.local", DemoBusiness.Hairdresser,
-            ["customers", "loyalty", "appointments"]),
-        new("Köşe Kahve", "Kafe", "Murat Aksoy", "kahve@tezgah.local", DemoBusiness.Cafe,
-            ["customers", "orders", "loyalty", "inventory"]),
-        new("Yıldız Lojistik", "Lojistik", "Hakan Yıldız", "lojistik@tezgah.local", DemoBusiness.Logistics,
-            ["fleet"]),
+        new("Makas Kuaför", "Kuaför", DemoBusiness.Hairdresser, ["customers", "loyalty", "appointments"],
+            [("Elif Demir", "makas@tezgah.local", Roles.Owner), ("Selin Kaya", "resepsiyon@tezgah.local", Roles.Staff)]),
+        new("Köşe Kahve", "Kafe", DemoBusiness.Cafe, ["customers", "orders", "loyalty", "inventory"],
+            [("Murat Aksoy", "kahve@tezgah.local", Roles.Owner), ("Deniz Arı", "kasa@tezgah.local", Roles.Staff)]),
+        new("Yıldız Lojistik", "Lojistik", DemoBusiness.Logistics, ["fleet"],
+            [("Hakan Yıldız", "lojistik@tezgah.local", Roles.Owner), ("Okan Çelik", "filo@tezgah.local", Roles.Manager)]),
     ];
 
     public static async Task SeedAsync(IServiceProvider services, CancellationToken ct)
@@ -52,9 +54,14 @@ internal static class DemoCompanies
                 }
 
                 var tenant = Tenant.Create(company.Name, company.Sector, modules, now);
-                var owner = User.Create(tenant.Id, company.OwnerEmail, company.OwnerName, Roles.Owner);
-                owner.SetPasswordHash(hasher.HashPassword(owner, Password));
-                db.AddRange(tenant, owner);
+                db.Add(tenant);
+                foreach (var (name, email, role) in company.People)
+                {
+                    var user = User.Create(tenant.Id, email, name, role, now);
+                    user.SetPassword(hasher.HashPassword(user, Password));
+                    db.Add(user);
+                }
+
                 created.Add((tenant, company));
             }
 
@@ -76,5 +83,5 @@ internal static class DemoCompanies
     }
 
     private sealed record DemoCompany(
-        string Name, string Sector, string OwnerName, string OwnerEmail, DemoBusiness Business, string[] Modules);
+        string Name, string Sector, DemoBusiness Business, string[] Modules, (string Name, string Email, string Role)[] People);
 }

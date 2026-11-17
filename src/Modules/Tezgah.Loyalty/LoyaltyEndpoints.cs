@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Tezgah.Core.Contracts;
 using Tezgah.Core.Results;
+using Tezgah.Core.Security;
 using Tezgah.Core.Web;
 
 namespace Tezgah.Loyalty;
@@ -31,13 +32,13 @@ internal static class LoyaltyEndpoints
 
     public static void Map(RouteGroupBuilder api)
     {
-        api.MapGet("/programs", ListProgramsAsync);
-        api.MapPost("/programs", CreateProgramAsync);
-        api.MapPut("/programs/{programId:guid}", UpdateProgramAsync);
-        api.MapGet("/programs/{programId:guid}/cards", ListCardsAsync);
-        api.MapPost("/cards/{cardId:guid}/redemptions", RedeemAsync);
-        api.MapGet("/cards/{cardId:guid}/entries", ListEntriesAsync);
-        api.MapGet("/summary", SummaryAsync);
+        api.MapGet("/programs", ListProgramsAsync).RequirePermission(LoyaltyPermissions.View);
+        api.MapPost("/programs", CreateProgramAsync).RequirePermission(LoyaltyPermissions.ManagePrograms);
+        api.MapPut("/programs/{programId:guid}", UpdateProgramAsync).RequirePermission(LoyaltyPermissions.ManagePrograms);
+        api.MapGet("/programs/{programId:guid}/cards", ListCardsAsync).RequirePermission(LoyaltyPermissions.View);
+        api.MapPost("/cards/{cardId:guid}/redemptions", RedeemAsync).RequirePermission(LoyaltyPermissions.Redeem);
+        api.MapGet("/cards/{cardId:guid}/entries", ListEntriesAsync).RequirePermission(LoyaltyPermissions.View);
+        api.MapGet("/summary", SummaryAsync).RequirePermission(LoyaltyPermissions.View);
     }
 
     private static async Task<IReadOnlyList<ProgramResponse>> ListProgramsAsync(LoyaltyDbContext db, CancellationToken ct)

@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Tezgah.Core.Contracts;
 using Tezgah.Core.Messaging;
 using Tezgah.Core.Modules;
+using Tezgah.Core.Security;
 using Tezgah.Core.Persistence;
 
 namespace Tezgah.Loyalty;
@@ -15,6 +16,8 @@ public sealed class LoyaltyModule : IModule
     public ModuleInfo Info { get; } = new(
         Key, "Sadakat", "Damga kartları: randevu ve siparişlerden otomatik damga, belirli sayıda alışverişe bir ödül.",
         DependsOn: "customers");
+
+    public IReadOnlyList<Permission> Permissions => LoyaltyPermissions.All;
 
     public void AddServices(IServiceCollection services)
     {

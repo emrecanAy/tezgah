@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Tezgah.Core.Modules;
+using Tezgah.Core.Security;
 using Tezgah.Core.Persistence;
 
 namespace Tezgah.Fleet;
@@ -11,6 +12,8 @@ public sealed class FleetModule : IModule
     public const string Key = "fleet";
 
     public ModuleInfo Info { get; } = new(Key, "Filo", "Araçlar, yakıt ve bakım kayıtları, muayene ve sigorta hatırlatmaları.");
+
+    public IReadOnlyList<Permission> Permissions => FleetPermissions.All;
 
     public void AddServices(IServiceCollection services) => services.AddModuleDbContext<FleetDbContext>(Key);
 

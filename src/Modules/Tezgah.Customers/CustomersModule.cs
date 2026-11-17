@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Tezgah.Core.Contracts;
 using Tezgah.Core.Modules;
+using Tezgah.Core.Security;
 using Tezgah.Core.Persistence;
 
 namespace Tezgah.Customers;
@@ -12,6 +13,8 @@ public sealed class CustomersModule : IModule
     public const string Key = "customers";
 
     public ModuleInfo Info { get; } = new(Key, "Müşteriler", "Müşteri kayıtları ve iletişim bilgileri.");
+
+    public IReadOnlyList<Permission> Permissions => CustomerPermissions.All;
 
     public void AddServices(IServiceCollection services)
     {

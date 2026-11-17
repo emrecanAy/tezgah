@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Tezgah.Core.Contracts;
 using Tezgah.Core.Messaging;
 using Tezgah.Core.Modules;
+using Tezgah.Core.Security;
 using Tezgah.Core.Persistence;
 using Tezgah.Core.Tenancy;
 
@@ -15,6 +16,8 @@ public sealed class AppointmentsModule : IModule
 
     public ModuleInfo Info { get; } = new(
         Key, "Randevu", "Hizmetler, personel takvimi ve çakışmayan randevular.", DependsOn: "customers");
+
+    public IReadOnlyList<Permission> Permissions => AppointmentPermissions.All;
 
     public void AddServices(IServiceCollection services)
     {

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Tezgah.Core.Persistence;
 using Tezgah.Core.Results;
+using Tezgah.Core.Security;
 using Tezgah.Core.Web;
 
 namespace Tezgah.Customers;
@@ -22,10 +23,10 @@ internal static class CustomerEndpoints
 
     public static void Map(RouteGroupBuilder api)
     {
-        api.MapGet("", ListAsync);
-        api.MapPost("", CreateAsync);
-        api.MapPut("/{customerId:guid}", UpdateAsync);
-        api.MapGet("/summary", SummaryAsync);
+        api.MapGet("", ListAsync).RequirePermission(CustomerPermissions.View);
+        api.MapPost("", CreateAsync).RequirePermission(CustomerPermissions.Edit);
+        api.MapPut("/{customerId:guid}", UpdateAsync).RequirePermission(CustomerPermissions.Edit);
+        api.MapGet("/summary", SummaryAsync).RequirePermission(CustomerPermissions.View);
     }
 
     private static async Task<IReadOnlyList<CustomerResponse>> ListAsync(

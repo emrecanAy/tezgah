@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Tezgah.Core.Results;
+using Tezgah.Core.Security;
 using Tezgah.Core.Web;
 
 namespace Tezgah.Appointments;
@@ -28,7 +29,8 @@ internal static class SetupEndpoints
     public static void Map(RouteGroupBuilder api)
     {
         api.MapGet("/services", async (AppointmentsDbContext db, CancellationToken ct) =>
-            (await db.Services.AsNoTracking().OrderBy(service => service.Name).ToListAsync(ct)).ConvertAll(ServiceResponse.From));
+            (await db.Services.AsNoTracking().OrderBy(service => service.Name).ToListAsync(ct)).ConvertAll(ServiceResponse.From))
+            .RequirePermission(AppointmentPermissions.View);
 
         api.MapPost("/services", async (ServiceRequest request, AppointmentsDbContext db, CancellationToken ct) =>
         {
@@ -41,7 +43,7 @@ internal static class SetupEndpoints
             db.Services.Add(service.Value);
             await db.SaveChangesAsync(ct);
             return Results.Created($"/api/appointments/services/{service.Value.Id}", ServiceResponse.From(service.Value));
-        });
+        }).RequirePermission(AppointmentPermissions.Setup);
 
         api.MapPut("/services/{serviceId:guid}", async (
             Guid serviceId, ServiceRequest request, AppointmentsDbContext db, CancellationToken ct) =>
@@ -60,10 +62,11 @@ internal static class SetupEndpoints
 
             await db.SaveChangesAsync(ct);
             return Results.Ok(ServiceResponse.From(service));
-        });
+        }).RequirePermission(AppointmentPermissions.Setup);
 
         api.MapGet("/staff", async (AppointmentsDbContext db, CancellationToken ct) =>
-            (await db.Staff.AsNoTracking().OrderBy(staff => staff.Name).ToListAsync(ct)).ConvertAll(StaffResponse.From));
+            (await db.Staff.AsNoTracking().OrderBy(staff => staff.Name).ToListAsync(ct)).ConvertAll(StaffResponse.From))
+            .RequirePermission(AppointmentPermissions.View);
 
         api.MapPost("/staff", async (StaffRequest request, AppointmentsDbContext db, CancellationToken ct) =>
         {
@@ -76,7 +79,7 @@ internal static class SetupEndpoints
             db.Staff.Add(staff.Value);
             await db.SaveChangesAsync(ct);
             return Results.Created($"/api/appointments/staff/{staff.Value.Id}", StaffResponse.From(staff.Value));
-        });
+        }).RequirePermission(AppointmentPermissions.Setup);
 
         api.MapPut("/staff/{staffId:guid}", async (
             Guid staffId, StaffRequest request, AppointmentsDbContext db, CancellationToken ct) =>
@@ -95,6 +98,6 @@ internal static class SetupEndpoints
 
             await db.SaveChangesAsync(ct);
             return Results.Ok(StaffResponse.From(staff));
-        });
+        }).RequirePermission(AppointmentPermissions.Setup);
     }
 }

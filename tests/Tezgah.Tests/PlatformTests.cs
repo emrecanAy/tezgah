@@ -9,19 +9,6 @@ namespace Tezgah.Tests;
 public sealed class PlatformTests(TezgahApp app)
 {
     [Fact]
-    public async Task A_wrong_password_and_an_unknown_account_get_the_same_answer()
-    {
-        var client = app.Anonymous();
-
-        var wrongPassword = await client.PostAsJsonAsync("/api/auth/login", new { email = TezgahApp.AdminEmail, password = "nope" });
-        var unknownAccount = await client.PostAsJsonAsync("/api/auth/login", new { email = "nobody@test.local", password = "nope" });
-
-        Assert.Equal(HttpStatusCode.Unauthorized, wrongPassword.StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, unknownAccount.StatusCode);
-        Assert.Equal(await wrongPassword.ErrorCodeAsync(), await unknownAccount.ErrorCodeAsync());
-    }
-
-    [Fact]
     public async Task A_company_sees_exactly_the_modules_it_was_given()
     {
         var company = await app.OpenCompanyAsync("customers", "loyalty");

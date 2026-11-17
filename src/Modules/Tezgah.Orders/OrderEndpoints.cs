@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Tezgah.Core.Contracts;
 using Tezgah.Core.Persistence;
 using Tezgah.Core.Results;
+using Tezgah.Core.Security;
 using Tezgah.Core.Web;
 
 namespace Tezgah.Orders;
@@ -34,23 +35,27 @@ internal static class OrderEndpoints
         decimal Total,
         string? RewardNote,
         string PlacedBy,
+        Guid? PlacedById,
         DateTimeOffset PlacedAt);
 
     public sealed record Summary(int OrdersToday, decimal RevenueToday);
 
     public static void Map(RouteGroupBuilder api)
     {
-        api.MapGet("/menu", ListMenuAsync);
-        api.MapPost("/menu", CreateMenuItemAsync);
-        api.MapPut("/menu/{itemId:guid}", UpdateMenuItemAsync);
+        api.MapGet("/menu", ListMenuAsync).RequirePermission(OrderPermissions.View);
+        api.MapPost("/menu", CreateMenuItemAsync).RequirePermission(OrderPermissions.ManageMenu);
+        api.MapPut("/menu/{itemId:guid}", UpdateMenuItemAsync).RequirePermission(OrderPermissions.ManageMenu);
 
-        api.MapGet("", ListAsync);
-        api.MapPost("", PlaceAsync);
-        api.MapPost("/{orderId:guid}/cancel", async (Guid orderId, Till till, CancellationToken ct) =>
-            (await till.CancelAsync(orderId, ct)).ToHttp());
+        api.MapGet("", ListAsync).RequirePermission(OrderPermissions.View);
+        api.MapPost("", PlaceAsync).RequirePermission(OrderPermissions.Sell);
+        // Staff may cancel only their own order, shortly after placing it; the till decides per order.
+        api.MapPost("/{orderId:guid}/cancel", async (Guid orderId, ClaimsPrincipal user, Till till, CancellationToken ct) =>
+            (await till.CancelAsync(orderId, user, ct)).ToHttp())
+            .RequirePermission(OrderPermissions.Sell);
         api.MapGet("/rewards", (Guid customerId, ILoyaltyRewards rewards, CancellationToken ct) =>
-            rewards.AvailableAsync(customerId, ct));
-        api.MapGet("/summary", SummaryAsync);
+            rewards.AvailableAsync(customerId, ct))
+            .RequirePermission(OrderPermissions.Sell);
+        api.MapGet("/summary", SummaryAsync).RequirePermission(OrderPermissions.View);
     }
 
     private static async Task<IReadOnlyList<MenuItemResponse>> ListMenuAsync(OrdersDbContext db, CancellationToken ct) =>
@@ -112,7 +117,9 @@ internal static class OrderEndpoints
         OrderRequest request, ClaimsPrincipal user, Till till, ICustomerDirectory customers, CancellationToken ct)
     {
         var placed = await till.PlaceAsync(
-            new PlaceOrder(request.Id, request.CustomerId, request.Items ?? [], request.RewardCardId), user.GetDisplayName(), ct);
+            new PlaceOrder(request.Id, request.CustomerId, request.Items ?? [], request.RewardCardId),
+            new Cashier(user.GetUserId(), user.GetDisplayName()),
+            ct);
 
         return placed.IsSuccess
             ? Results.Ok((await ToResponsesAsync([placed.Value], customers, ct))[0])
@@ -144,6 +151,7 @@ internal static class OrderEndpoints
             order.Total,
             order.RewardNote,
             order.PlacedBy,
+            order.PlacedById,
             order.PlacedAt))];
     }
 

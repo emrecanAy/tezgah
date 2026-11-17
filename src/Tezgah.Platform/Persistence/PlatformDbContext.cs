@@ -15,6 +15,12 @@ internal sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> opti
 
     public DbSet<User> Users => Set<User>();
 
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
+    public DbSet<SignInThrottle> SignInThrottles => Set<SignInThrottle>();
+
+    public DbSet<RecoveryCode> RecoveryCodes => Set<RecoveryCode>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Schema);
@@ -41,8 +47,36 @@ internal sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> opti
             user.Property(u => u.Email).HasMaxLength(200);
             user.Property(u => u.FullName).HasMaxLength(120);
             user.Property(u => u.Role).HasMaxLength(30);
+            user.Property(u => u.TotpSecret).HasMaxLength(200);
+            user.Property(u => u.PendingTotpSecret).HasMaxLength(200);
+            user.Ignore(u => u.TwoStepEnabled);
             user.HasIndex(u => u.Email).IsUnique();
             user.HasOne<Tenant>().WithMany().HasForeignKey(u => u.TenantId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RefreshToken>(token =>
+        {
+            token.Property(t => t.Id).ValueGeneratedNever();
+            token.Property(t => t.TokenHash).HasMaxLength(64);
+            token.Property(t => t.Device).HasMaxLength(RefreshToken.MaxDeviceLength);
+            token.HasIndex(t => t.TokenHash).IsUnique();
+            token.HasIndex(t => t.FamilyId);
+            token.HasIndex(t => t.UserId);
+            token.HasOne<User>().WithMany().HasForeignKey(t => t.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<SignInThrottle>(throttle =>
+        {
+            throttle.HasKey(t => t.Email);
+            throttle.Property(t => t.Email).HasMaxLength(200);
+        });
+
+        modelBuilder.Entity<RecoveryCode>(code =>
+        {
+            code.Property(c => c.Id).ValueGeneratedNever();
+            code.Property(c => c.CodeHash).HasMaxLength(64);
+            code.HasIndex(c => new { c.UserId, c.CodeHash });
+            code.HasOne<User>().WithMany().HasForeignKey(c => c.UserId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

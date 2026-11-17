@@ -7,6 +7,7 @@ using Tezgah.Core.Modules;
 using Tezgah.Core.Persistence;
 using Tezgah.Core.Results;
 using Tezgah.Core.Web;
+using Tezgah.Platform.Auth;
 using Tezgah.Platform.Domain;
 using Tezgah.Platform.Persistence;
 
@@ -21,8 +22,13 @@ internal static class AdminEndpoints
         Guid Id, string Name, string Sector, DateTimeOffset CreatedAt, IReadOnlyList<string> Modules, string? OwnerEmail);
 
     public sealed record CreateCompanyRequest(
-        string? Name, string? Sector, string? OwnerFullName, string? OwnerEmail, string? OwnerPassword,
-        IReadOnlyList<string>? Modules);
+        string? Name, string? Sector, string? OwnerFullName, string? OwnerEmail, IReadOnlyList<string>? Modules);
+
+    /// <param name="OwnerTemporaryPassword">
+    /// Shown once, for the operator to pass on. It signs in only to choose a new password: the
+    /// operator never knows the password the owner actually uses.
+    /// </param>
+    public sealed record CreatedCompany(CompanyResponse Company, string OwnerTemporaryPassword);
 
     public sealed record SetModulesRequest(IReadOnlyList<string>? Modules);
 
@@ -60,20 +66,17 @@ internal static class AdminEndpoints
             return Error.Validation("invalid_company", "Company name, sector, owner name and a valid owner e-mail are required.").ToProblem();
         }
 
-        if ((request.OwnerPassword?.Length ?? 0) < 8)
-        {
-            return Error.Validation("weak_password", "The owner's password needs at least 8 characters.").ToProblem();
-        }
-
         var modules = (request.Modules ?? []).Distinct().ToList();
         if (catalog.Validate(modules) is { } problem)
         {
             return Error.Validation("invalid_module_selection", problem).ToProblem();
         }
 
-        var tenant = Tenant.Create(request.Name, request.Sector, modules, time.GetUtcNow());
-        var owner = User.Create(tenant.Id, request.OwnerEmail, request.OwnerFullName, Roles.Owner);
-        owner.SetPasswordHash(hasher.HashPassword(owner, request.OwnerPassword!));
+        var now = time.GetUtcNow();
+        var tenant = Tenant.Create(request.Name, request.Sector, modules, now);
+        var owner = User.Create(tenant.Id, request.OwnerEmail, request.OwnerFullName, Roles.Owner, now);
+        var temporaryPassword = Secrets.NewTemporaryPassword();
+        owner.SetTemporaryPassword(hasher.HashPassword(owner, temporaryPassword));
         db.AddRange(tenant, owner);
 
         try
@@ -85,7 +88,8 @@ internal static class AdminEndpoints
             return Error.Conflict("email_in_use", "Another account already uses this e-mail address.").ToProblem();
         }
 
-        return Results.Created($"/api/admin/companies/{tenant.Id}", ToResponse(tenant, owner.Email));
+        return Results.Created(
+            $"/api/admin/companies/{tenant.Id}", new CreatedCompany(ToResponse(tenant, owner.Email), temporaryPassword));
     }
 
     private static async Task<IResult> SetModulesAsync(

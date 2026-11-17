@@ -32,6 +32,11 @@ public sealed class TezgahApp : IAsyncLifetime
         {
             host.UseSetting("ConnectionStrings:Postgres", _postgres.GetConnectionString());
             host.UseSetting("Auth:SigningKey", "integration-tests-signing-key-0123456789abcdef");
+            host.UseSetting("Auth:EncryptionKey", "integration-tests-encryption-key-0123456789ab");
+            // The test client talks plain HTTP; a Secure cookie would never be sent back.
+            host.UseSetting("Auth:SecureCookies", "false");
+            // Tests sign in hundreds of times from one address; the per-address limit has its own test host.
+            host.UseSetting("Auth:SignInRequestsPerMinute", "100000");
             host.UseSetting("Database:MigrateOnStartup", "true");
             host.UseSetting("Platform:AdminEmail", AdminEmail);
             host.UseSetting("Platform:AdminPassword", Password);
@@ -49,21 +54,27 @@ public sealed class TezgahApp : IAsyncLifetime
         await _postgres.DisposeAsync();
     }
 
-    public HttpClient Anonymous() => _factory.CreateClient();
+    /// <summary>A client with a cookie jar, sending the header the auth endpoints require.</summary>
+    public HttpClient Anonymous()
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add(AuthEndpoints.ClientHeader, AuthEndpoints.ClientHeaderValue);
+        return client;
+    }
 
     public async Task<HttpClient> SignInAsync(string email, string password = Password)
     {
-        var client = _factory.CreateClient();
-        var response = await client.PostAsJsonAsync("/api/auth/login", new { email, password });
+        var client = Anonymous();
+        var response = await client.PostAsJsonAsync("/api/auth/sign-in", new { email, password });
         response.EnsureSuccessStatusCode();
-        var login = await response.Content.ReadFromJsonAsync<AuthEndpoints.LoginResponse>();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login!.Token);
+        var signIn = await response.Content.ReadFromJsonAsync<AuthEndpoints.SignInResponse>();
+        UseSession(client, signIn!.Session!);
         return client;
     }
 
     public Task<HttpClient> SignInAsAdminAsync() => SignInAsync(AdminEmail);
 
-    /// <summary>Opens a new company with the given modules and signs in as its owner.</summary>
+    /// <summary>Opens a new company with the given modules and signs in as its owner, who has chosen their own password.</summary>
     public async Task<Company> OpenCompanyAsync(params string[] modules)
     {
         var admin = await SignInAsAdminAsync();
@@ -74,14 +85,37 @@ public sealed class TezgahApp : IAsyncLifetime
             sector = "Test",
             ownerFullName = "Test Owner",
             ownerEmail,
-            ownerPassword = Password,
             modules,
         });
         response.EnsureSuccessStatusCode();
-        var company = await response.Content.ReadFromJsonAsync<AdminEndpoints.CompanyResponse>();
+        var created = await response.Content.ReadFromJsonAsync<AdminEndpoints.CreatedCompany>();
 
-        return new Company(company!.Id, await SignInAsync(ownerEmail));
+        return new Company(created!.Company.Id, await FirstSignInAsync(ownerEmail, created.OwnerTemporaryPassword));
     }
+
+    /// <summary>Adds a person with the given role to the company and signs in as them.</summary>
+    public async Task<(Guid Id, HttpClient Api)> AddMemberAsync(Company company, string role)
+    {
+        var email = $"{role}-{Guid.NewGuid():N}@test.local";
+        var response = await company.Api.PostAsJsonAsync("/api/team", new { fullName = $"Test {role}", email, role });
+        response.EnsureSuccessStatusCode();
+        var created = await response.Content.ReadFromJsonAsync<Tezgah.Platform.Team.TeamEndpoints.TemporaryPassword>();
+        return (created!.Member.Id, await FirstSignInAsync(email, created.Password));
+    }
+
+    /// <summary>Signs in with a temporary password and replaces it with <see cref="Password"/>, as the app makes everyone do.</summary>
+    public async Task<HttpClient> FirstSignInAsync(string email, string temporaryPassword)
+    {
+        var client = await SignInAsync(email, temporaryPassword);
+        var changed = await client.PostAsJsonAsync(
+            "/api/account/password", new { currentPassword = temporaryPassword, newPassword = Password });
+        changed.EnsureSuccessStatusCode();
+        UseSession(client, (await changed.Content.ReadFromJsonAsync<SessionResponse>())!);
+        return client;
+    }
+
+    public static void UseSession(HttpClient client, SessionResponse session) =>
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", session.AccessToken);
 
     /// <summary>A service scope acting as the given company, for looking straight into a module's database.</summary>
     public AsyncServiceScope ScopeFor(Guid companyId)

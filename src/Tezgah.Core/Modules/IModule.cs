@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Tezgah.Core.Security;
 
 namespace Tezgah.Core.Modules;
 
@@ -11,6 +12,12 @@ namespace Tezgah.Core.Modules;
 public interface IModule
 {
     ModuleInfo Info { get; }
+
+    /// <summary>
+    /// Everything a user can be allowed to do in this module. Every endpoint the module maps asks for
+    /// one of them (a test checks that none is left open to every role).
+    /// </summary>
+    IReadOnlyList<Permission> Permissions { get; }
 
     void AddServices(IServiceCollection services);
 

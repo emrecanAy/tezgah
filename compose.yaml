@@ -25,8 +25,13 @@ services:
       ConnectionStrings__Postgres: Host=postgres;Database=tezgah;Username=tezgah;Password=tezgah
       # Local-only values. A real installation supplies its own.
       Auth__SigningKey: local-compose-signing-key-not-for-production-use
+      Auth__EncryptionKey: local-compose-encryption-key-not-for-production
+      # The browser talks plain HTTP to localhost here. Behind TLS this stays at its default, true.
+      Auth__SecureCookies: "false"
+      # nginx in the web container forwards the client's address; trust it from the compose network only.
+      ForwardedHeaders__KnownNetworks__0: 172.16.0.0/12
       Platform__AdminEmail: admin@tezgah.local
-      Platform__AdminPassword: admin1234
+      Platform__AdminPassword: tezgah-platform-2026
       Platform__SeedDemoData: "true"
       Database__MigrateOnStartup: "true"
       # Every module is shipped by default. compose.fleet.yaml shows an installation with fewer.

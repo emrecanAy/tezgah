@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Tezgah.Core.Modules;
+using Tezgah.Core.Security;
 using Tezgah.Core.Persistence;
 
 namespace Tezgah.Inventory;
@@ -11,6 +12,8 @@ public sealed class InventoryModule : IModule
     public const string Key = "inventory";
 
     public ModuleInfo Info { get; } = new(Key, "Stok", "Ürünler, giriş-çıkış hareketleri ve azalan stok uyarıları.");
+
+    public IReadOnlyList<Permission> Permissions => InventoryPermissions.All;
 
     public void AddServices(IServiceCollection services)
     {

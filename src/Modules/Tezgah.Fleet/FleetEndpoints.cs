@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Tezgah.Core.Persistence;
 using Tezgah.Core.Results;
+using Tezgah.Core.Security;
 using Tezgah.Core.Web;
 
 namespace Tezgah.Fleet;
@@ -34,15 +35,16 @@ internal static class FleetEndpoints
 
     public static void Map(RouteGroupBuilder api)
     {
-        api.MapGet("/vehicles", ListAsync);
-        api.MapPost("/vehicles", RegisterAsync);
-        api.MapGet("/vehicles/{vehicleId:guid}", LogbookAsync);
-        api.MapPut("/vehicles/{vehicleId:guid}", UpdateAsync);
-        api.MapPost("/vehicles/{vehicleId:guid}/maintenance", LogMaintenanceAsync);
-        api.MapPost("/vehicles/{vehicleId:guid}/fuel", LogFuelAsync);
+        api.MapGet("/vehicles", ListAsync).RequirePermission(FleetPermissions.View);
+        api.MapPost("/vehicles", RegisterAsync).RequirePermission(FleetPermissions.ManageVehicles);
+        api.MapGet("/vehicles/{vehicleId:guid}", LogbookAsync).RequirePermission(FleetPermissions.View);
+        api.MapPut("/vehicles/{vehicleId:guid}", UpdateAsync).RequirePermission(FleetPermissions.ManageVehicles);
+        api.MapPost("/vehicles/{vehicleId:guid}/maintenance", LogMaintenanceAsync).RequirePermission(FleetPermissions.Log);
+        api.MapPost("/vehicles/{vehicleId:guid}/fuel", LogFuelAsync).RequirePermission(FleetPermissions.Log);
         api.MapGet("/alerts", async (FleetDbContext db, TimeProvider time, CancellationToken ct) =>
-            (await LoadAsync(db, time, ct)).SelectMany(vehicle => vehicle.Alerts).OrderBy(alert => alert.DaysLeft).ToList());
-        api.MapGet("/summary", SummaryAsync);
+            (await LoadAsync(db, time, ct)).SelectMany(vehicle => vehicle.Alerts).OrderBy(alert => alert.DaysLeft).ToList())
+            .RequirePermission(FleetPermissions.View);
+        api.MapGet("/summary", SummaryAsync).RequirePermission(FleetPermissions.View);
     }
 
     private static async Task<IReadOnlyList<VehicleResponse>> ListAsync(FleetDbContext db, TimeProvider time, CancellationToken ct) =>

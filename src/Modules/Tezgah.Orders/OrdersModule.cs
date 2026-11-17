@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Tezgah.Core.Contracts;
 using Tezgah.Core.Messaging;
 using Tezgah.Core.Modules;
+using Tezgah.Core.Security;
 using Tezgah.Core.Persistence;
 using Tezgah.Core.Tenancy;
 
@@ -16,6 +17,8 @@ public sealed class OrdersModule : IModule
 
     public ModuleInfo Info { get; } = new(
         Key, "Sipariş", "Menü ve kasa: tutar menüden hesaplanır, sadakat damgası siparişle gelir.", DependsOn: "customers");
+
+    public IReadOnlyList<Permission> Permissions => OrderPermissions.All;
 
     public void AddServices(IServiceCollection services)
     {
@@ -66,7 +69,7 @@ public sealed class OrdersModule : IModule
             var placedAt = now.AddDays(-daysAgo).AddHours(-1 - picks.Length);
             var order = Order.Place(
                 Guid.CreateVersion7(), customerId, [.. picks.Select(pick => (items[pick.Item], pick.Quantity))], reward: null,
-                "Demo", placedAt).Value;
+                placedById: null, "Demo", placedAt).Value;
             db.Orders.Add(order);
             if (customerId is { } id)
             {

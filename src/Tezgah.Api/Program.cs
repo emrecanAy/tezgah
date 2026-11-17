@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.HttpOverrides;
 using Scalar.AspNetCore;
 using Tezgah.Api;
 using Tezgah.Appointments;
@@ -34,17 +35,41 @@ foreach (var module in catalog.Modules)
     module.AddServices(services);
 }
 
+// Behind the web container's nginx the client address arrives in X-Forwarded-For. It is believed only
+// from the networks listed here, so a client talking to the API directly cannot pick its own address
+// and slip past the sign-in rate limit.
+services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    foreach (var network in builder.Configuration.GetSection("ForwardedHeaders:KnownNetworks").Get<string[]>() ?? [])
+    {
+        options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(network));
+    }
+});
+
 var app = builder.Build();
 
+app.UseForwardedHeaders();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
+app.Use(async (http, next) =>
+{
+    // An API answers with data, never with something to render or frame; nothing it says is cached.
+    var headers = http.Response.Headers;
+    headers.XContentTypeOptions = "nosniff";
+    headers.XFrameOptions = "DENY";
+    headers.CacheControl = "no-store";
+    headers["Referrer-Policy"] = "no-referrer";
+    await next(http);
+});
 app.UseAuthentication();
 app.UseTenantContext();
 app.UseAuthorization();
+app.UseRateLimiter();
 
-app.MapOpenApi();
-app.MapScalarApiReference("/docs");
-app.MapHealthChecks("/health");
+app.MapOpenApi().AllowAnonymous();
+app.MapScalarApiReference("/docs").AllowAnonymous();
+app.MapHealthChecks("/health").AllowAnonymous();
 
 var api = app.MapGroup("/api");
 api.MapPlatformEndpoints();

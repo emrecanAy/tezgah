@@ -6,6 +6,7 @@ using Tezgah.Core.Contracts;
 using Tezgah.Core.Messaging;
 using Tezgah.Core.Persistence;
 using Tezgah.Core.Results;
+using Tezgah.Core.Security;
 using Tezgah.Core.Web;
 
 namespace Tezgah.Appointments;
@@ -22,14 +23,16 @@ internal static class AppointmentEndpoints
 
     public static void Map(RouteGroupBuilder api)
     {
-        api.MapGet("", ListAsync);
-        api.MapPost("", BookAsync);
-        api.MapPost("/{appointmentId:guid}/complete", CompleteAsync);
+        api.MapGet("", ListAsync).RequirePermission(AppointmentPermissions.View);
+        api.MapPost("", BookAsync).RequirePermission(AppointmentPermissions.Book);
+        api.MapPost("/{appointmentId:guid}/complete", CompleteAsync).RequirePermission(AppointmentPermissions.Book);
         api.MapPost("/{appointmentId:guid}/cancel", (Guid appointmentId, AppointmentsDbContext db, CancellationToken ct) =>
-            CloseAsync(appointmentId, db, appointment => appointment.Cancel(), ct));
+            CloseAsync(appointmentId, db, appointment => appointment.Cancel(), ct))
+            .RequirePermission(AppointmentPermissions.Book);
         api.MapPost("/{appointmentId:guid}/no-show", (Guid appointmentId, AppointmentsDbContext db, CancellationToken ct) =>
-            CloseAsync(appointmentId, db, appointment => appointment.MarkNoShow(), ct));
-        api.MapGet("/summary", SummaryAsync);
+            CloseAsync(appointmentId, db, appointment => appointment.MarkNoShow(), ct))
+            .RequirePermission(AppointmentPermissions.Book);
+        api.MapGet("/summary", SummaryAsync).RequirePermission(AppointmentPermissions.View);
     }
 
     /// <summary>Appointments that start inside [from, to). The client passes the bounds of its local day.</summary>

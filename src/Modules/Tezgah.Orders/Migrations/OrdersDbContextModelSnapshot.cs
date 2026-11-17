@@ -139,6 +139,10 @@ namespace Tezgah.Orders.Migrations
                         .HasColumnType("character varying(120)")
                         .HasColumnName("placed_by");
 
+                    b.Property<Guid?>("PlacedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("placed_by_id");
+
                     b.Property<string>("RewardNote")
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)")

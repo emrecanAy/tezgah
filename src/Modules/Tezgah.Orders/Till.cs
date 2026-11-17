@@ -1,9 +1,11 @@
+using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Tezgah.Core.Contracts;
 using Tezgah.Core.Messaging;
 using Tezgah.Core.Persistence;
 using Tezgah.Core.Results;
 using Tezgah.Core.Tenancy;
+using Tezgah.Core.Web;
 
 namespace Tezgah.Orders;
 
@@ -11,13 +13,16 @@ namespace Tezgah.Orders;
 /// <param name="RewardCardId">A loyalty card whose reward the customer wants to spend on this order.</param>
 internal sealed record PlaceOrder(Guid Id, Guid? CustomerId, IReadOnlyList<OrderPick> Items, Guid? RewardCardId);
 
+/// <summary>Who is at the till.</summary>
+internal sealed record Cashier(Guid UserId, string Name);
+
 internal sealed record OrderPick(Guid MenuItemId, int Quantity);
 
 /// <summary>Rings up and cancels orders. Loyalty learns about both only through events.</summary>
 internal sealed class Till(
     OrdersDbContext db, ICustomerDirectory customers, ILoyaltyRewards rewards, TenantContext tenant, TimeProvider time)
 {
-    public async Task<Result<Order>> PlaceAsync(PlaceOrder request, string placedBy, CancellationToken ct)
+    public async Task<Result<Order>> PlaceAsync(PlaceOrder request, Cashier cashier, CancellationToken ct)
     {
         if (request.Id == Guid.Empty)
         {
@@ -57,7 +62,8 @@ internal sealed class Till(
             reward = claim.Value;
         }
 
-        var order = Order.Place(request.Id, request.CustomerId, picks.Value, reward, placedBy, time.GetUtcNow());
+        var order = Order.Place(
+            request.Id, request.CustomerId, picks.Value, reward, cashier.UserId, cashier.Name, time.GetUtcNow());
         if (!order.IsSuccess)
         {
             await ReleaseAsync(reward, request.Id);
@@ -67,7 +73,7 @@ internal sealed class Till(
         return await SaveAsync(order.Value, reward, ct);
     }
 
-    public async Task<Result> CancelAsync(Guid orderId, CancellationToken ct)
+    public async Task<Result> CancelAsync(Guid orderId, ClaimsPrincipal user, CancellationToken ct)
     {
         var order = await db.Orders.SingleOrDefaultAsync(o => o.Id == orderId, ct);
         if (order is null)
@@ -76,6 +82,12 @@ internal sealed class Till(
         }
 
         var now = time.GetUtcNow();
+        if (!order.MayBeCancelledBy(user.GetUserId(), OrderPermissions.CancelAny.IsGrantedTo(user), now))
+        {
+            return Error.Forbidden(
+                "cancel_not_allowed", "Only a manager can cancel this order; staff may cancel their own orders for 15 minutes.");
+        }
+
         var cancelled = order.Cancel(now);
         if (!cancelled.IsSuccess)
         {

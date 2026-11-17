@@ -48,6 +48,9 @@ internal sealed class Order : ITenantOwned
 
     public string PlacedBy { get; private set; } = null!;
 
+    /// <summary>The user who rang the order up; empty for imported or demo orders.</summary>
+    public Guid? PlacedById { get; private set; }
+
     public DateTimeOffset PlacedAt { get; private set; }
 
     public DateTimeOffset? CancelledAt { get; private set; }
@@ -58,7 +61,7 @@ internal sealed class Order : ITenantOwned
     /// <param name="reward">A reward already claimed for this order; it makes one qualifying item free.</param>
     public static Result<Order> Place(
         Guid id, Guid? customerId, IReadOnlyList<(MenuItem Item, int Quantity)> picks, RewardClaim? reward,
-        string placedBy, DateTimeOffset now)
+        Guid? placedById, string placedBy, DateTimeOffset now)
     {
         if (picks.Count is 0 or > MaxLines || picks.Any(pick => pick.Quantity is < 1 or > MaxQuantity))
         {
@@ -70,6 +73,7 @@ internal sealed class Order : ITenantOwned
             Id = id,
             CustomerId = customerId,
             Status = OrderStatus.Placed,
+            PlacedById = placedById,
             PlacedBy = placedBy,
             PlacedAt = now,
         };
@@ -103,6 +107,17 @@ internal sealed class Order : ITenantOwned
         order.Discount = order.Subtotal - order.Total;
         return order;
     }
+
+    /// <summary>How long after placing it the person who rang an order up may still cancel it themselves.</summary>
+    public static readonly TimeSpan OwnCancellationWindow = TimeSpan.FromMinutes(15);
+
+    /// <summary>
+    /// Whether this user may cancel this order. Managers may cancel anything; anyone else only an order
+    /// they placed themselves, within <see cref="OwnCancellationWindow"/>: a mistake at the till gets
+    /// fixed on the spot, but nobody can quietly erase yesterday's sales.
+    /// </summary>
+    public bool MayBeCancelledBy(Guid userId, bool canCancelAny, DateTimeOffset now) =>
+        canCancelAny || (PlacedById == userId && now - PlacedAt <= OwnCancellationWindow);
 
     public Result Cancel(DateTimeOffset now)
     {
