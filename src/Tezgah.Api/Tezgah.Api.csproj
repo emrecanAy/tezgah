@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+    <PackageReference Include="Scalar.AspNetCore" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Tezgah.Core\Tezgah.Core.csproj" />
+    <ProjectReference Include="..\Tezgah.Platform\Tezgah.Platform.csproj" />
+    <ProjectReference Include="..\Modules\Tezgah.Appointments\Tezgah.Appointments.csproj" />
+    <ProjectReference Include="..\Modules\Tezgah.Customers\Tezgah.Customers.csproj" />
+    <ProjectReference Include="..\Modules\Tezgah.Fleet\Tezgah.Fleet.csproj" />
+    <ProjectReference Include="..\Modules\Tezgah.Inventory\Tezgah.Inventory.csproj" />
+    <ProjectReference Include="..\Modules\Tezgah.Loyalty\Tezgah.Loyalty.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Tezgah.Tests" />
+  </ItemGroup>
+</Project>

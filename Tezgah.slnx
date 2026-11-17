@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Tezgah.Api/Tezgah.Api.csproj" />
+    <Project Path="src/Tezgah.Core/Tezgah.Core.csproj" />
+    <Project Path="src/Tezgah.Platform/Tezgah.Platform.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/">
+    <Project Path="src/Modules/Tezgah.Appointments/Tezgah.Appointments.csproj" />
+    <Project Path="src/Modules/Tezgah.Customers/Tezgah.Customers.csproj" />
+    <Project Path="src/Modules/Tezgah.Fleet/Tezgah.Fleet.csproj" />
+    <Project Path="src/Modules/Tezgah.Inventory/Tezgah.Inventory.csproj" />
+    <Project Path="src/Modules/Tezgah.Loyalty/Tezgah.Loyalty.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Tezgah.Tests/Tezgah.Tests.csproj" />
+  </Folder>
+</Solution>
